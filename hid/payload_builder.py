@@ -76,119 +76,174 @@ class PayloadBuilder:
         # Registry export - Policies (Works on Home)
         self.payloads['export_policies'] = {
             'name': 'Export Registry Policies',
-            'description': 'Exports HKLM and HKCU Policies to C:',
+            'description': 'Exports HKLM and HKCU Policies to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         self.payloads['export_user_policies'] = {
             'name': 'Export User Policies',
-            'description': 'Exports HKCU Policies to C:',
+            'description': 'Exports HKCU Policies to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         # Registry export - Services (Works on Home)
         self.payloads['export_services'] = {
             'name': 'Export Services Registry',
-            'description': 'Exports Services registry to C:',
+            'description': 'Exports Services registry to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         # Registry export - Control (Works on Home)
         self.payloads['export_control'] = {
             'name': 'Export Control Registry',
-            'description': 'Exports Control registry to C:',
+            'description': 'Exports Control registry to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         # Firewall export (Works on Home)
         self.payloads['export_firewall'] = {
             'name': 'Export Firewall Config',
-            'description': 'Exports firewall configuration to C:',
+            'description': 'Exports firewall configuration to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c netsh advfirewall export C:\\firewall.wfw'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'netsh advfirewall export C:\\firewall.wfw'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         # Defender settings (Works on Home)
         self.payloads['export_defender'] = {
             'name': 'Export Defender Settings',
-            'description': 'Exports Windows Defender preferences to JSON',
+            'description': 'Exports Windows Defender preferences to JSON (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell -WindowStyle Hidden'},
+                {'action': 'type', 'text': 'powershell'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 > C:\\defender.json'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 > C:\\defender.json; exit'},
+                {'action': 'type', 'text': 'exit'},
                 {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
             ]
         }
         
         # Driver enumeration (Works on Home)
         self.payloads['export_drivers'] = {
             'name': 'Export Driver List',
-            'description': 'Exports installed drivers to C:',
+            'description': 'Exports installed drivers to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c pnputil /enum-drivers > C:\\drivers.txt'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'pnputil /enum-drivers > C:\\drivers.txt'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         # Device enumeration (Works on Home)
         self.payloads['export_devices'] = {
             'name': 'Export Device List',
-            'description': 'Exports device list to C:',
+            'description': 'Exports device list to C: (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd /c pnputil /enum-devices > C:\\devices.txt'},
+                {'action': 'type', 'text': 'cmd'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'pnputil /enum-devices > C:\\devices.txt'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
             ]
         }
         
         # Combined audit (All Home-compatible commands)
         self.payloads['full_audit'] = {
             'name': 'Full System Audit',
-            'description': 'Runs all Home-compatible exports',
+            'description': 'Runs all Home-compatible exports (Elevated)',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell -WindowStyle Hidden'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'powershell'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
                 {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
                 {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y;'},
                 {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y;'},
@@ -196,10 +251,11 @@ class PayloadBuilder:
                 {'action': 'type', 'text': 'netsh advfirewall export C:\\firewall.wfw;'},
                 {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 > C:\\defender.json;'},
                 {'action': 'type', 'text': 'pnputil /enum-drivers > C:\\drivers.txt;'},
-                {'action': 'type', 'text': 'pnputil /enum-devices > C:\\devices.txt;'},
+                {'action': 'type', 'text': 'pnputil /enum-devices > C:\\devices.txt'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 8000},
                 {'action': 'type', 'text': 'exit'},
                 {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 5000},
             ]
         }
     
