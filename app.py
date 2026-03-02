@@ -4,15 +4,7 @@ import json
 import os
 from hid import HIDController
 from portal.upload_server import start_background, set_scan_metadata
-
-# Try to import parser, but don't fail if unavailable
-try:
-    from parser import generate_report
-    PARSER_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Parser module unavailable: {e}")
-    PARSER_AVAILABLE = False
-    generate_report = None
+from parser import generate_report
 
 app = Flask(__name__)
 
@@ -195,12 +187,9 @@ def set_metadata():
 @app.route('/report/generate', methods=['POST'])
 def generate_audit_report():
     """Generate PDF report from audit files"""
-    if not PARSER_AVAILABLE:
-        return jsonify({"error": "Parser module not available. Install: pip install reportlab"}), 503
-    
     try:
         data = request.get_json()
-        base_path = data.get('base_path', 'C:\\')
+        base_path = data.get('base_path', 'uploads')
         output_name = data.get('output', 'security_report.pdf')
         
         # Generate report

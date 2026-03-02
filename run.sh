@@ -20,7 +20,11 @@ echo "Activating virtual environment..."
 source venv/bin/activate
 
 # Install/update dependencies
-echo "Installing dependencies..."
+echo "Installing system dependencies for PDF generation..."
+sudo apt-get update -qq
+sudo apt-get install -y python3-dev libjpeg-dev zlib1g-dev libfreetype6-dev
+
+echo "Installing Python dependencies..."
 pip install -q -r requirements.txt
 
 # Create uploads directory
@@ -59,9 +63,11 @@ try:
     from parser import AuditParser, ReportGenerator
     print("✓ Parser module loaded")
 except Exception as e:
-    print(f"⚠ Parser unavailable (optional): {e}")
+    print(f"✗ Parser error: {e}")
+    print("Run: sudo apt-get install python3-dev libjpeg-dev zlib1g-dev libfreetype6-dev")
+    exit(1)
 
-print("✓ Core components integrated successfully")
+print("✓ All components integrated successfully")
 EOF
 
 if [ $? -ne 0 ]; then
