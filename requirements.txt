@@ -1,3 +1,4 @@
+# Core Flask dependencies (required)
 Flask==3.1.3
 Jinja2==3.1.6
 Werkzeug==3.1.6
@@ -5,3 +6,7 @@ click==8.1.7
 itsdangerous==2.2.0
 MarkupSafe==3.0.2
 blinker==1.8.2
+
+# PDF Report Generation (optional - may fail on Pi, app works without it)
+reportlab==4.2.5
+pillow==10.4.0
