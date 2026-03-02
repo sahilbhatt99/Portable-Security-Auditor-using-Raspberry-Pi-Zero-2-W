@@ -4,11 +4,15 @@ import json
 import os
 from hid import HIDController
 from parser import generate_report
+from portal.upload_server import start_background
 
 app = Flask(__name__)
 
 # Initialize HID controller
 hid_controller = HIDController()
+
+# Start upload server in background
+start_background()
 
 # In-memory storage for compliance logs
 compliance_logs = []
