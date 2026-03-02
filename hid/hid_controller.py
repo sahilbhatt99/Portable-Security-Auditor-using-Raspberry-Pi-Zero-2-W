@@ -98,6 +98,8 @@ class HIDController:
             self.current_execution = payload_name
             self._log_live(f"Starting execution: {payload_name}")
             self._log_live(f"Total commands: {len(commands)}")
+            self._log_live("Waiting 6 seconds before execution...")
+            time.sleep(6)
             
             for i, cmd in enumerate(commands, 1):
                 action = cmd.get('action')
