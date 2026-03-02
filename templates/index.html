@@ -1,234 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <title>Security Auditor</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portable Security Auditor Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: monospace; margin: 20px; background: #f0f0f0; }
+        h1 { border-bottom: 2px solid #000; }
+        h2 { margin-top: 20px; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; background: #fff; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background: #ccc; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #fff; border: 1px solid #000; padding: 10px; overflow: auto; }
+        select { padding: 5px; width: 100%; max-width: 400px; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header>
-            <h1>🔒 Portable Security Auditor</h1>
-            <p>Raspberry Pi Zero 2 W - Policy Compliance Dashboard</p>
-        </header>
+    <h1>Portable Security Auditor</h1>
+    <p>Raspberry Pi Zero 2 W</p>
 
-        <!-- System Status Panel -->
-        <section class="status-panel">
-            <h2>System Status</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <span class="label">Pi Status:</span>
-                    <span class="value" id="pi-status">Loading...</span>
-                </div>
-                <div class="status-item">
-                    <span class="label">USB Link:</span>
-                    <span class="value" id="usb-status">Loading...</span>
-                </div>
-                <div class="status-item">
-                    <span class="label">Policy Engine:</span>
-                    <span class="value" id="policy-status">Loading...</span>
-                </div>
-                <div class="status-item">
-                    <span class="label">HID System:</span>
-                    <span class="value" id="hid-status">Loading...</span>
-                </div>
-            </div>
-        </section>
+    <h2>System Status</h2>
+    <table>
+        <tr><th>Component</th><th>Status</th></tr>
+        <tr><td>Pi Status</td><td id="pi-status">...</td></tr>
+        <tr><td>USB Link</td><td id="usb-status">...</td></tr>
+        <tr><td>Policy Engine</td><td id="policy-status">...</td></tr>
+        <tr><td>HID System</td><td id="hid-status">...</td></tr>
+    </table>
 
-        <!-- HID Control Panel -->
-        <section class="hid-panel">
-            <h2>HID Injection Control</h2>
-            <div class="hid-controls">
-                <button id="hid-enable-btn" class="btn-success">Enable HID</button>
-                <button id="hid-disable-btn" class="btn-danger">Disable HID</button>
-            </div>
-            <div class="payload-section">
-                <h3>Execute Payload</h3>
-                <select id="payload-select" class="payload-dropdown">
-                    <option value="">Select payload...</option>
-                </select>
-                <button id="execute-payload-btn" class="btn-primary">Execute</button>
-            </div>
-            <div id="hid-result" class="hid-result-box"></div>
-        </section>
+    <h2>HID Control</h2>
+    <button onclick="enableHID()">Enable HID</button>
+    <button onclick="disableHID()">Disable HID</button>
+    <p id="hid-msg"></p>
 
-        <!-- Compliance Result Display -->
-        <section class="compliance-panel">
-            <h2>Latest Compliance Check</h2>
-            <div id="compliance-result" class="result-box">
-                <p class="placeholder">No checks performed yet. Click "Run Test Check" below.</p>
-            </div>
-        </section>
+    <h2>Execute Payload</h2>
+    <select id="payload">
+        <option value="">Select payload...</option>
+    </select><br>
+    <button onclick="executePayload()">Execute</button>
+    <p id="exec-msg"></p>
 
-        <!-- Manual Test Check -->
-        <section class="test-panel">
-            <h2>Manual Test</h2>
-            <button id="test-btn" class="btn-primary">Run Test Check</button>
-            <p class="hint">Simulates a compliance check with sample data</p>
-        </section>
+    <h2>Compliance Check</h2>
+    <button onclick="runTest()">Run Test Check</button>
+    <div id="compliance-result"></div>
 
-        <!-- Last Received Data -->
-        <section class="data-panel">
-            <h2>Last Received System Data</h2>
-            <pre id="system-data" class="data-box">No data received yet</pre>
-        </section>
-    </div>
+    <h2>Last System Data</h2>
+    <pre id="system-data">No data</pre>
 
     <script>
-        // Load system status on page load
-        async function loadStatus() {
-            try {
-                const response = await fetch('/status');
-                const data = await response.json();
-                
-                document.getElementById('pi-status').textContent = data.system.pi_status;
-                document.getElementById('usb-status').textContent = data.system.usb_link;
-                document.getElementById('policy-status').textContent = data.system.policy_engine;
-                document.getElementById('hid-status').textContent = data.system.hid_enabled ? 'enabled' : 'disabled';
-            } catch (error) {
-                console.error('Failed to load status:', error);
-            }
+        function loadStatus() {
+            fetch('/status').then(r => r.json()).then(d => {
+                document.getElementById('pi-status').textContent = d.system.pi_status;
+                document.getElementById('usb-status').textContent = d.system.usb_link;
+                document.getElementById('policy-status').textContent = d.system.policy_engine;
+                document.getElementById('hid-status').textContent = d.system.hid_enabled ? 'enabled' : 'disabled';
+            });
         }
 
-        // Load available payloads
-        async function loadPayloads() {
-            try {
-                const response = await fetch('/hid/payloads');
-                const payloads = await response.json();
-                
-                const select = document.getElementById('payload-select');
-                select.innerHTML = '<option value="">Select payload...</option>';
-                
-                for (const [key, payload] of Object.entries(payloads)) {
-                    const option = document.createElement('option');
-                    option.value = key;
-                    option.textContent = `${payload.name} - ${payload.description}`;
-                    select.appendChild(option);
+        function loadPayloads() {
+            fetch('/hid/payloads').then(r => r.json()).then(p => {
+                const sel = document.getElementById('payload');
+                sel.innerHTML = '<option value="">Select payload...</option>';
+                for (const [k, v] of Object.entries(p)) {
+                    sel.innerHTML += `<option value="${k}">${v.name}</option>`;
                 }
-            } catch (error) {
-                console.error('Failed to load payloads:', error);
-            }
+            });
         }
 
-        // Display compliance result
-        function displayResult(result) {
-            const resultDiv = document.getElementById('compliance-result');
-            const compliantClass = result.compliant ? 'compliant' : 'non-compliant';
-            
-            let html = `
-                <div class="result ${compliantClass}">
-                    <h3>${result.compliant ? '✓ Compliant' : '✗ Non-Compliant'}</h3>
-                    <p><strong>Host:</strong> ${result.host}</p>
-                    <p><strong>Timestamp:</strong> ${result.timestamp}</p>
-            `;
-            
-            if (result.issues && result.issues.length > 0) {
-                html += '<p><strong>Issues Found:</strong></p><ul>';
-                result.issues.forEach(issue => {
-                    html += `<li>${issue}</li>`;
-                });
-                html += '</ul>';
-            } else {
-                html += '<p>No issues detected.</p>';
-            }
-            
-            html += '</div>';
-            resultDiv.innerHTML = html;
+        function enableHID() {
+            fetch('/hid/enable', {method: 'POST'}).then(r => r.json()).then(d => {
+                document.getElementById('hid-msg').innerHTML = '<span class="success">HID enabled</span>';
+                loadStatus();
+            });
         }
 
-        // Run manual test check
-        document.getElementById('test-btn').addEventListener('click', async () => {
-            const testData = {
+        function disableHID() {
+            fetch('/hid/disable', {method: 'POST'}).then(r => r.json()).then(d => {
+                document.getElementById('hid-msg').innerHTML = '<span class="error">HID disabled</span>';
+                loadStatus();
+            });
+        }
+
+        function executePayload() {
+            const p = document.getElementById('payload').value;
+            if (!p) { alert('Select a payload'); return; }
+            fetch('/hid/execute', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({payload: p, variables: {SERVER_IP: window.location.host}})
+            }).then(r => r.json()).then(d => {
+                if (d.success) {
+                    document.getElementById('exec-msg').innerHTML = '<span class="success">Executed: ' + p + '</span>';
+                } else {
+                    document.getElementById('exec-msg').innerHTML = '<span class="error">Failed: ' + d.error + '</span>';
+                }
+            });
+        }
+
+        function runTest() {
+            const data = {
                 hostname: 'TEST-PC',
                 firewall_enabled: Math.random() > 0.5,
                 antivirus_updated: Math.random() > 0.5,
-                disk_encryption: Math.random() > 0.5,
-                os_version: 'Windows 11',
-                last_update: '2024-01-15'
+                disk_encryption: Math.random() > 0.5
             };
-
-            try {
-                const response = await fetch('/check', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(testData)
-                });
-
-                const result = await response.json();
-                displayResult(result);
-                
-                // Display raw data
-                document.getElementById('system-data').textContent = 
-                    JSON.stringify(testData, null, 2);
-            } catch (error) {
-                console.error('Check failed:', error);
-                alert('Failed to perform compliance check');
-            }
-        });
-
-        // HID Control Handlers
-        document.getElementById('hid-enable-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/hid/enable', { method: 'POST' });
-                const result = await response.json();
-                document.getElementById('hid-result').innerHTML = 
-                    `<p class="success">HID system enabled at ${result.timestamp}</p>`;
-                loadStatus();
-            } catch (error) {
-                document.getElementById('hid-result').innerHTML = 
-                    `<p class="error">Failed to enable HID: ${error}</p>`;
-            }
-        });
-
-        document.getElementById('hid-disable-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/hid/disable', { method: 'POST' });
-                const result = await response.json();
-                document.getElementById('hid-result').innerHTML = 
-                    `<p class="warning">HID system disabled at ${result.timestamp}</p>`;
-                loadStatus();
-            } catch (error) {
-                document.getElementById('hid-result').innerHTML = 
-                    `<p class="error">Failed to disable HID: ${error}</p>`;
-            }
-        });
-
-        document.getElementById('execute-payload-btn').addEventListener('click', async () => {
-            const payload = document.getElementById('payload-select').value;
-            if (!payload) {
-                alert('Please select a payload');
-                return;
-            }
-
-            try {
-                const response = await fetch('/hid/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        payload: payload,
-                        variables: { SERVER_IP: window.location.host }
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    document.getElementById('hid-result').innerHTML = 
-                        `<p class="success">✓ Payload "${payload}" executed successfully</p>`;
-                } else {
-                    document.getElementById('hid-result').innerHTML = 
-                        `<p class="error">✗ Execution failed: ${result.error}</p>`;
+            fetch('/check', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            }).then(r => r.json()).then(d => {
+                let html = '<table><tr><th>Field</th><th>Value</th></tr>';
+                html += '<tr><td>Compliant</td><td>' + (d.compliant ? 'YES' : 'NO') + '</td></tr>';
+                html += '<tr><td>Host</td><td>' + d.host + '</td></tr>';
+                html += '<tr><td>Timestamp</td><td>' + d.timestamp + '</td></tr>';
+                if (d.issues.length > 0) {
+                    html += '<tr><td>Issues</td><td>' + d.issues.join(', ') + '</td></tr>';
                 }
-            } catch (error) {
-                document.getElementById('hid-result').innerHTML = 
-                    `<p class="error">✗ Request failed: ${error}</p>`;
-            }
-        });
+                html += '</table>';
+                document.getElementById('compliance-result').innerHTML = html;
+                document.getElementById('system-data').textContent = JSON.stringify(data, null, 2);
+            });
+        }
 
-        // Auto-refresh status every 5 seconds
         loadStatus();
         loadPayloads();
         setInterval(loadStatus, 5000);
