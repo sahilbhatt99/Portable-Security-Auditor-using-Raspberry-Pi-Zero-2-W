@@ -27,18 +27,20 @@ class HIDController:
         self.enabled = False
         self.execution_log = []
         self.last_execution = {}
-        self.cooldown_seconds = 10  # Prevent rapid re-execution
+        self.cooldown_seconds = 5
+        self.live_log = []
+        self.current_execution = None
     
     def enable_hid(self):
         """Enable HID injection system"""
         self.enabled = True
-        logger.info("HID system enabled")
+        self._log_live("HID system enabled")
         return {"status": "enabled", "timestamp": datetime.now().isoformat()}
     
     def disable_hid(self):
         """Disable HID injection system"""
         self.enabled = False
-        logger.info("HID system disabled")
+        self._log_live("HID system disabled")
         return {"status": "disabled", "timestamp": datetime.now().isoformat()}
     
     def is_enabled(self):
@@ -46,21 +48,25 @@ class HIDController:
         return self.enabled
     
     def _check_cooldown(self, payload_name):
-        """
-        Check if payload is in cooldown period.
-        
-        Args:
-            payload_name: Name of payload to check
-        
-        Returns:
-            True if cooldown active, False otherwise
-        """
+        """Check if payload is in cooldown period"""
         if payload_name in self.last_execution:
             last_time = self.last_execution[payload_name]
             elapsed = (datetime.now() - last_time).total_seconds()
             if elapsed < self.cooldown_seconds:
                 return True
         return False
+    
+    def _log_live(self, message, level='info'):
+        """Add message to live log"""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'message': message,
+            'level': level
+        }
+        self.live_log.append(entry)
+        if len(self.live_log) > 200:
+            self.live_log.pop(0)
+        logger.info(message)
     
     def _log_execution(self, payload_name, status, error=None):
         """Log payload execution event"""
@@ -71,68 +77,59 @@ class HIDController:
             'error': error
         }
         self.execution_log.append(log_entry)
-        logger.info(f"Execution logged: {payload_name} - {status}")
-        
-        # Keep only last 100 entries
         if len(self.execution_log) > 100:
             self.execution_log.pop(0)
     
     def execute_payload(self, payload_name, variables=None):
-        """
-        Execute a payload by name.
-        
-        Args:
-            payload_name: Name of registered payload
-            variables: Optional dict of variables for substitution
-        
-        Returns:
-            Dict with execution result
-        """
-        # Check if enabled
+        """Execute a payload by name"""
         if not self.enabled:
             error = "HID system is disabled"
-            logger.warning(f"Execution blocked: {error}")
+            self._log_live(f"Execution blocked: {error}", 'error')
             return {"success": False, "error": error}
         
-        # Check cooldown
         if self._check_cooldown(payload_name):
             error = f"Payload '{payload_name}' in cooldown period"
-            logger.warning(f"Execution blocked: {error}")
+            self._log_live(f"Execution blocked: {error}", 'warning')
             return {"success": False, "error": error}
         
         try:
-            # Get payload commands
             commands = self.payload_builder.get_payload(payload_name, variables)
             
-            logger.info(f"Executing payload: {payload_name}")
+            self.current_execution = payload_name
+            self._log_live(f"Starting execution: {payload_name}")
+            self._log_live(f"Total commands: {len(commands)}")
             
-            # Execute each command
-            for cmd in commands:
+            for i, cmd in enumerate(commands, 1):
                 action = cmd.get('action')
                 
                 if action == 'type':
+                    text = cmd['text'][:50] + '...' if len(cmd['text']) > 50 else cmd['text']
+                    self._log_live(f"[{i}/{len(commands)}] Typing: {text}")
                     self.executor.type_string(cmd['text'])
                 
                 elif action == 'key':
+                    self._log_live(f"[{i}/{len(commands)}] Pressing key: {cmd['name']}")
                     self.executor.press_key(cmd['name'])
                 
                 elif action == 'combo':
                     keys = cmd['keys']
+                    combo_str = '+'.join(keys)
+                    self._log_live(f"[{i}/{len(commands)}] Key combo: {combo_str}")
                     modifiers = keys[:-1]
                     key = keys[-1]
                     self.executor.key_combo(modifiers, key)
                 
                 elif action == 'delay':
+                    self._log_live(f"[{i}/{len(commands)}] Waiting {cmd['ms']}ms")
                     self.executor.delay(cmd['ms'])
                 
                 else:
-                    logger.warning(f"Unknown action: {action}")
+                    self._log_live(f"Unknown action: {action}", 'warning')
             
-            # Update last execution time
             self.last_execution[payload_name] = datetime.now()
-            
-            # Log success
             self._log_execution(payload_name, 'success')
+            self._log_live(f"✓ Execution completed: {payload_name}", 'success')
+            self.current_execution = None
             
             return {
                 "success": True,
@@ -142,8 +139,9 @@ class HIDController:
         
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Execution failed: {payload_name} - {error_msg}")
+            self._log_live(f"✗ Execution failed: {error_msg}", 'error')
             self._log_execution(payload_name, 'failed', error_msg)
+            self.current_execution = None
             
             return {
                 "success": False,
@@ -152,16 +150,16 @@ class HIDController:
             }
     
     def get_execution_log(self, limit=50):
-        """
-        Get recent execution log entries.
-        
-        Args:
-            limit: Maximum number of entries to return
-        
-        Returns:
-            List of log entries
-        """
+        """Get recent execution log entries"""
         return self.execution_log[-limit:]
+    
+    def get_live_log(self, limit=50):
+        """Get recent live log entries"""
+        return self.live_log[-limit:]
+    
+    def clear_live_log(self):
+        """Clear live log"""
+        self.live_log = []
     
     def list_payloads(self):
         """List all available payloads"""
@@ -173,5 +171,7 @@ class HIDController:
             "enabled": self.enabled,
             "available_payloads": len(self.payload_builder.payloads),
             "executions_logged": len(self.execution_log),
-            "cooldown_seconds": self.cooldown_seconds
+            "cooldown_seconds": self.cooldown_seconds,
+            "current_execution": self.current_execution,
+            "live_log_count": len(self.live_log)
         }

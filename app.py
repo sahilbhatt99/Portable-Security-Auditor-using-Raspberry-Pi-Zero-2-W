@@ -150,6 +150,18 @@ def hid_status():
     status = hid_controller.get_status()
     return jsonify(status)
 
+@app.route('/hid/live-log')
+def hid_live_log():
+    """Get live execution log"""
+    logs = hid_controller.get_live_log(limit=100)
+    return jsonify({"logs": logs})
+
+@app.route('/hid/clear-log', methods=['POST'])
+def hid_clear_log():
+    """Clear live log"""
+    hid_controller.clear_live_log()
+    return jsonify({"success": True})
+
 # Report Generation Routes
 
 @app.route('/report/generate', methods=['POST'])

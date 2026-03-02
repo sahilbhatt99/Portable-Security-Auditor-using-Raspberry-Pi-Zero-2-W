@@ -40,7 +40,11 @@
         <option value="">Select payload...</option>
     </select><br>
     <button onclick="executePayload()">Execute</button>
+    <button onclick="clearLog()">Clear Log</button>
     <p id="exec-msg"></p>
+    
+    <h3>Live Execution Log</h3>
+    <pre id="live-log" style="height: 200px; overflow-y: auto;">No execution yet</pre>
 
     <h2>Compliance Check</h2>
     <button onclick="runTest()">Run Test Check</button>
@@ -86,16 +90,54 @@
         function executePayload() {
             const p = document.getElementById('payload').value;
             if (!p) { alert('Select a payload'); return; }
+            document.getElementById('live-log').textContent = 'Starting execution...';
+            startLogPolling();
             fetch('/hid/execute', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({payload: p, variables: {SERVER_IP: window.location.host}})
+                body: JSON.stringify({payload: p, variables: {SERVER_IP: window.location.host.split(':')[0]}})
             }).then(r => r.json()).then(d => {
                 if (d.success) {
                     document.getElementById('exec-msg').innerHTML = '<span class="success">Executed: ' + p + '</span>';
                 } else {
                     document.getElementById('exec-msg').innerHTML = '<span class="error">Failed: ' + d.error + '</span>';
                 }
+                setTimeout(stopLogPolling, 2000);
+            });
+        }
+
+        let logInterval = null;
+        function startLogPolling() {
+            if (logInterval) clearInterval(logInterval);
+            logInterval = setInterval(loadLiveLog, 500);
+        }
+
+        function stopLogPolling() {
+            if (logInterval) {
+                clearInterval(logInterval);
+                logInterval = null;
+            }
+        }
+
+        function loadLiveLog() {
+            fetch('/hid/live-log').then(r => r.json()).then(d => {
+                const logs = d.logs;
+                if (logs.length > 0) {
+                    let text = '';
+                    logs.forEach(log => {
+                        const time = new Date(log.timestamp).toLocaleTimeString();
+                        text += `[${time}] ${log.message}\n`;
+                    });
+                    const logEl = document.getElementById('live-log');
+                    logEl.textContent = text;
+                    logEl.scrollTop = logEl.scrollHeight;
+                }
+            });
+        }
+
+        function clearLog() {
+            fetch('/hid/clear-log', {method: 'POST'}).then(() => {
+                document.getElementById('live-log').textContent = 'Log cleared';
             });
         }
 
