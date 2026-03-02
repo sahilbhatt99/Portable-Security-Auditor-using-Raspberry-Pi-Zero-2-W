@@ -23,11 +23,48 @@ source venv/bin/activate
 echo "Installing dependencies..."
 pip install -q -r requirements.txt
 
+# Create uploads directory
+echo "Creating uploads directory..."
+mkdir -p uploads
+
+# Check HID device
+echo ""
+echo "Checking HID device..."
+if [ -e "/dev/hidg0" ]; then
+    echo "✓ HID device found: /dev/hidg0"
+else
+    echo "✗ HID device not found: /dev/hidg0"
+    echo "  Run: sudo modprobe g_hid"
+fi
+
+# Test imports
+echo ""
+echo "Testing component integration..."
+python3 << EOF
+try:
+    from hid import HIDController
+    from parser import AuditParser, ReportGenerator
+    from portal import start_background
+    print("✓ HID module loaded")
+    print("✓ Parser module loaded")
+    print("✓ Portal module loaded")
+    print("✓ All components integrated successfully")
+except Exception as e:
+    print(f"✗ Integration error: {e}")
+    exit(1)
+EOF
+
+if [ $? -ne 0 ]; then
+    echo "Component integration failed. Exiting."
+    exit 1
+fi
+
 # Start the application
 echo ""
 echo "Starting Flask application on port 80..."
-echo "Dashboard: http://raspberrypi.local or http://192.168.7.1"
-echo "Upload server: port 8000"
+echo "Dashboard: http://172.16.0.1 or http://raspberrypi.local"
+echo "Upload server: port 8000 (auto-started)"
+echo "Uploads directory: ./uploads/"
 echo ""
 echo "Press Ctrl+C to stop"
 echo ""
