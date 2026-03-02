@@ -1,7 +1,9 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from datetime import datetime
 import json
+import os
 from hid import HIDController
+from parser import generate_report
 
 app = Flask(__name__)
 
@@ -143,6 +145,39 @@ def hid_status():
     """Get HID system status"""
     status = hid_controller.get_status()
     return jsonify(status)
+
+# Report Generation Routes
+
+@app.route('/report/generate', methods=['POST'])
+def generate_audit_report():
+    """Generate PDF report from audit files"""
+    try:
+        data = request.get_json()
+        base_path = data.get('base_path', 'C:\\')
+        output_name = data.get('output', 'security_report.pdf')
+        
+        # Generate report
+        report_path = generate_report(base_path, output_name)
+        
+        return jsonify({
+            "success": True,
+            "report": output_name,
+            "path": report_path
+        })
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/report/download/<filename>')
+def download_report(filename):
+    """Download generated report"""
+    try:
+        if os.path.exists(filename):
+            return send_file(filename, as_attachment=True)
+        else:
+            return jsonify({"error": "Report not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
     # Run on port 80 for production (requires sudo on Linux)
