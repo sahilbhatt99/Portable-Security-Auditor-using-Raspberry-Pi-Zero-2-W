@@ -2,12 +2,38 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 import threading
 import logging
+from datetime import datetime
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+BASE_UPLOAD_DIR = "uploads"
+os.makedirs(BASE_UPLOAD_DIR, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('UploadServer')
+
+# Store current scan metadata
+current_scan = {
+    'device_name': 'unknown',
+    'owner_name': 'unknown',
+    'scan_number': 1
+}
+
+def set_scan_metadata(device_name, owner_name, scan_number):
+    """Set metadata for current scan"""
+    current_scan['device_name'] = device_name
+    current_scan['owner_name'] = owner_name
+    current_scan['scan_number'] = scan_number
+
+def get_upload_directory():
+    """Generate upload directory based on current scan metadata"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    device = current_scan['device_name'].replace(' ', '_')
+    owner = current_scan['owner_name'].replace(' ', '_')
+    scan_num = current_scan['scan_number']
+    
+    dir_name = f"{timestamp}_scan{scan_num}_{device}_{owner}"
+    upload_dir = os.path.join(BASE_UPLOAD_DIR, dir_name)
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -26,12 +52,13 @@ class Handler(BaseHTTPRequestHandler):
             data = self.rfile.read(length)
 
             filename = self.headers.get("X-Filename", "upload.bin")
-            filepath = os.path.join(UPLOAD_DIR, filename)
+            upload_dir = get_upload_directory()
+            filepath = os.path.join(upload_dir, filename)
 
             with open(filepath, "wb") as f:
                 f.write(data)
             
-            logger.info(f"✓ Received file: {filename} ({length} bytes)")
+            logger.info(f"✓ Received: {filename} ({length} bytes) -> {upload_dir}")
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain')

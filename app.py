@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 import os
 from hid import HIDController
-from portal.upload_server import start_background
+from portal.upload_server import start_background, set_scan_metadata
 
 # Try to import parser, but don't fail if unavailable
 try:
@@ -169,6 +169,26 @@ def hid_clear_log():
     """Clear live log"""
     hid_controller.clear_live_log()
     return jsonify({"success": True})
+
+@app.route('/scan/set-metadata', methods=['POST'])
+def set_metadata():
+    """Set scan metadata for file organization"""
+    try:
+        data = request.get_json()
+        device_name = data.get('device_name', 'unknown')
+        owner_name = data.get('owner_name', 'unknown')
+        scan_number = data.get('scan_number', 1)
+        
+        set_scan_metadata(device_name, owner_name, scan_number)
+        
+        return jsonify({
+            "success": True,
+            "device_name": device_name,
+            "owner_name": owner_name,
+            "scan_number": scan_number
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 # Report Generation Routes
 
