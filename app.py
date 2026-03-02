@@ -3,8 +3,16 @@ from datetime import datetime
 import json
 import os
 from hid import HIDController
-from parser import generate_report
 from portal.upload_server import start_background
+
+# Try to import parser, but don't fail if unavailable
+try:
+    from parser import generate_report
+    PARSER_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Parser module unavailable: {e}")
+    PARSER_AVAILABLE = False
+    generate_report = None
 
 app = Flask(__name__)
 
@@ -167,6 +175,9 @@ def hid_clear_log():
 @app.route('/report/generate', methods=['POST'])
 def generate_audit_report():
     """Generate PDF report from audit files"""
+    if not PARSER_AVAILABLE:
+        return jsonify({"error": "Parser module not available. Install: pip install reportlab"}), 503
+    
     try:
         data = request.get_json()
         base_path = data.get('base_path', 'C:\\')

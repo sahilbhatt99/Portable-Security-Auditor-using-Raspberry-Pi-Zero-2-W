@@ -43,15 +43,25 @@ echo "Testing component integration..."
 python3 << EOF
 try:
     from hid import HIDController
-    from parser import AuditParser, ReportGenerator
-    from portal import start_background
     print("✓ HID module loaded")
-    print("✓ Parser module loaded")
-    print("✓ Portal module loaded")
-    print("✓ All components integrated successfully")
 except Exception as e:
-    print(f"✗ Integration error: {e}")
+    print(f"✗ HID error: {e}")
     exit(1)
+
+try:
+    from portal import start_background
+    print("✓ Portal module loaded")
+except Exception as e:
+    print(f"✗ Portal error: {e}")
+    exit(1)
+
+try:
+    from parser import AuditParser, ReportGenerator
+    print("✓ Parser module loaded")
+except Exception as e:
+    print(f"⚠ Parser unavailable (optional): {e}")
+
+print("✓ Core components integrated successfully")
 EOF
 
 if [ $? -ne 0 ]; then
