@@ -27,7 +27,7 @@ class HIDController:
         self.enabled = False
         self.execution_log = []
         self.last_execution = {}
-        self.cooldown_seconds = 5
+        self.cooldown_seconds = 2
         self.live_log = []
         self.current_execution = None
     
