@@ -1,0 +1,33 @@
+{
+  "timing": {
+    "execution_start_delay_ms": 8000,
+    "typing_speed_ms": 10,
+    "key_press_delay_ms": 50,
+    "payload_cooldown_seconds": 2,
+    "upload_verification_timeout_seconds": 30
+  },
+  "uac_elevation": {
+    "ctrl_shift_enter_delay_ms": 6000,
+    "alt_y_delay_ms": 5000
+  },
+  "windows": {
+    "run_box_delay_ms": 500,
+    "powershell_open_delay_ms": 2000,
+    "notepad_open_delay_ms": 1000
+  },
+  "commands": {
+    "reg_export_delay_ms": 2000,
+    "firewall_export_delay_ms": 2000,
+    "defender_export_delay_ms": 2000,
+    "pnputil_delay_ms": 3000,
+    "full_audit_delay_ms": 8000,
+    "upload_batch_delay_ms": 10000,
+    "exit_delay_ms": 2000
+  },
+  "upload": {
+    "verify_before_exit": true,
+    "retry_attempts": 3,
+    "retry_delay_ms": 2000,
+    "wait_for_upload_confirmation": true
+  }
+}
