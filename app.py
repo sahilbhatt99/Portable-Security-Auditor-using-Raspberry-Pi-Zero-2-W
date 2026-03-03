@@ -189,8 +189,12 @@ def generate_audit_report():
     """Generate PDF report from audit files"""
     try:
         data = request.get_json()
-        base_path = data.get('base_path', 'uploads')
-        output_name = data.get('output', 'security_report.pdf')
+        device_name = data.get('device_name', 'unknown')
+        owner_name = data.get('owner_name', 'unknown')
+        scan_number = data.get('scan_number', 1)
+        
+        base_path = 'uploads'
+        output_name = f'{device_name}_{owner_name}_scan{scan_number}_report.pdf'
         
         # Generate report
         report_path = generate_report(base_path, output_name)
@@ -198,11 +202,11 @@ def generate_audit_report():
         return jsonify({
             "success": True,
             "report": output_name,
-            "path": report_path
+            "report_path": f'/report/download/{output_name}'
         })
     
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"success": False, "error": str(e)}), 400
 
 @app.route('/report/download/<filename>')
 def download_report(filename):
