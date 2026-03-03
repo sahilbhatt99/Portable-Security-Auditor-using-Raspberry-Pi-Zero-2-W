@@ -25,9 +25,37 @@ class AuditParser:
             with open(filepath, 'r', encoding='utf-16-le') as f:
                 content = f.read()
                 keys = re.findall(r'\[([^\]]+)\]', content)
-                return {'total_keys': len(keys), 'keys': keys[:50]}
+                values = re.findall(r'"([^"]+)"=(.+)', content)
+                
+                # Extract detailed entries
+                entries = []
+                for key in keys[:100]:  # Limit to first 100
+                    entries.append({
+                        'key': key,
+                        'type': self._classify_registry_key(key)
+                    })
+                
+                return {
+                    'total_keys': len(keys),
+                    'total_values': len(values),
+                    'keys': keys[:50],
+                    'detailed_entries': entries
+                }
         except:
             return {'error': 'Failed to parse registry file'}
+    
+    def _classify_registry_key(self, key):
+        """Classify registry key type"""
+        if 'Policies' in key:
+            return 'Security Policy'
+        elif 'Services' in key:
+            return 'System Service'
+        elif 'Control' in key:
+            return 'System Control'
+        elif 'Software' in key:
+            return 'Software Configuration'
+        else:
+            return 'General'
     
     def parse_defender(self, filepath):
         """Parse defender.json"""
@@ -35,6 +63,7 @@ class AuditParser:
             with open(filepath, 'r') as f:
                 data = json.load(f)
                 findings = []
+                settings = []
                 
                 # Check critical settings
                 if not data.get('DisableRealtimeMonitoring', True):
@@ -46,14 +75,37 @@ class AuditParser:
                 if data.get('DisableBehaviorMonitoring', False):
                     findings.append('Behavior monitoring is DISABLED')
                 
+                # Extract all settings
+                for key, value in data.items():
+                    settings.append({
+                        'setting': key,
+                        'value': str(value),
+                        'description': self._describe_defender_setting(key)
+                    })
+                
                 return {
                     'realtime_enabled': not data.get('DisableRealtimeMonitoring', False),
                     'antispyware_enabled': not data.get('DisableAntiSpyware', True),
                     'behavior_monitoring': not data.get('DisableBehaviorMonitoring', True),
-                    'findings': findings
+                    'findings': findings,
+                    'all_settings': settings[:50]
                 }
         except:
             return {'error': 'Failed to parse defender.json'}
+    
+    def _describe_defender_setting(self, setting):
+        """Describe Defender setting"""
+        descriptions = {
+            'DisableRealtimeMonitoring': 'Controls real-time malware scanning',
+            'DisableAntiSpyware': 'Controls anti-spyware protection',
+            'DisableBehaviorMonitoring': 'Controls behavior-based detection',
+            'DisableIOAVProtection': 'Controls downloaded file scanning',
+            'DisableScriptScanning': 'Controls PowerShell script scanning',
+            'SubmitSamplesConsent': 'Controls automatic sample submission',
+            'MAPSReporting': 'Controls cloud-based protection level',
+            'PUAProtection': 'Controls potentially unwanted application blocking'
+        }
+        return descriptions.get(setting, 'Windows Defender configuration setting')
     
     def parse_drivers(self, filepath):
         """Parse drivers.txt"""
@@ -62,15 +114,26 @@ class AuditParser:
                 content = f.read()
                 drivers = re.findall(r'Published Name\s*:\s*(.+)', content)
                 unsigned = re.findall(r'Signer Name\s*:\s*Not digitally signed', content)
+                driver_names = re.findall(r'Driver package provider\s*:\s*(.+)', content)
                 
                 findings = []
                 if unsigned:
                     findings.append(f'{len(unsigned)} unsigned drivers detected')
                 
+                # Extract detailed driver info
+                detailed_drivers = []
+                for i, driver in enumerate(drivers[:50]):
+                    detailed_drivers.append({
+                        'published_name': driver.strip(),
+                        'provider': driver_names[i].strip() if i < len(driver_names) else 'Unknown',
+                        'signed': i not in range(len(unsigned))
+                    })
+                
                 return {
                     'total_drivers': len(drivers),
                     'unsigned_count': len(unsigned),
-                    'findings': findings
+                    'findings': findings,
+                    'detailed_drivers': detailed_drivers
                 }
         except:
             return {'error': 'Failed to parse drivers.txt'}
@@ -82,15 +145,26 @@ class AuditParser:
                 content = f.read()
                 devices = re.findall(r'Instance ID:\s*(.+)', content)
                 problem_devices = re.findall(r'Problem:\s*0x([1-9A-F][0-9A-F]*)', content)
+                device_names = re.findall(r'Device Description:\s*(.+)', content)
                 
                 findings = []
                 if problem_devices:
                     findings.append(f'{len(problem_devices)} devices with problems')
                 
+                # Extract detailed device info
+                detailed_devices = []
+                for i, device in enumerate(devices[:50]):
+                    detailed_devices.append({
+                        'instance_id': device.strip(),
+                        'description': device_names[i].strip() if i < len(device_names) else 'Unknown',
+                        'has_problem': i < len(problem_devices)
+                    })
+                
                 return {
                     'total_devices': len(devices),
                     'problem_count': len(problem_devices),
-                    'findings': findings
+                    'findings': findings,
+                    'detailed_devices': detailed_devices
                 }
         except:
             return {'error': 'Failed to parse devices.txt'}

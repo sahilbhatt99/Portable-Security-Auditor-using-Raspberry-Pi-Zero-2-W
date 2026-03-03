@@ -113,6 +113,16 @@ class ReportGenerator:
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ]))
             self.story.append(table)
+            
+            # Add detailed settings
+            if 'all_settings' in defender:
+                self.story.append(Spacer(1, 0.1*inch))
+                self.story.append(Paragraph("Detailed Settings:", self.styles['Heading3']))
+                for setting in defender['all_settings'][:30]:
+                    self.story.append(Paragraph(
+                        f"• {setting['setting']}: {setting['value']}<br/>&nbsp;&nbsp;{setting['description']}",
+                        self.styles['Normal']
+                    ))
         
         self.story.append(Spacer(1, 0.2*inch))
     
@@ -133,6 +143,17 @@ class ReportGenerator:
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ]))
             self.story.append(table)
+            
+            # Add detailed driver list
+            if 'detailed_drivers' in drivers:
+                self.story.append(Spacer(1, 0.1*inch))
+                self.story.append(Paragraph("Driver Details:", self.styles['Heading3']))
+                for driver in drivers['detailed_drivers'][:30]:
+                    status = 'Signed' if driver['signed'] else 'UNSIGNED'
+                    self.story.append(Paragraph(
+                        f"• {driver['published_name']} - {driver['provider']} ({status})",
+                        self.styles['Normal']
+                    ))
         
         self.story.append(Spacer(1, 0.2*inch))
     
@@ -153,6 +174,17 @@ class ReportGenerator:
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ]))
             self.story.append(table)
+            
+            # Add detailed device list
+            if 'detailed_devices' in devices:
+                self.story.append(Spacer(1, 0.1*inch))
+                self.story.append(Paragraph("Device Details:", self.styles['Heading3']))
+                for device in devices['detailed_devices'][:30]:
+                    status = 'Problem' if device['has_problem'] else 'OK'
+                    self.story.append(Paragraph(
+                        f"• {device['description']} ({status})",
+                        self.styles['Normal']
+                    ))
         
         self.story.append(Spacer(1, 0.2*inch))
     
@@ -162,9 +194,21 @@ class ReportGenerator:
         
         data = []
         if 'hklm_policies' in summary:
-            data.append(['HKLM Policies', str(summary['hklm_policies'].get('total_keys', 0)) + ' keys'])
+            hklm = summary['hklm_policies']
+            data.append(['HKLM Policies', str(hklm.get('total_keys', 0)) + ' keys'])
+            if 'detailed_entries' in hklm:
+                self.story.append(Paragraph("HKLM Policy Entries:", self.styles['Heading3']))
+                for entry in hklm['detailed_entries'][:20]:
+                    self.story.append(Paragraph(f"• {entry['key']} ({entry['type']})", self.styles['Normal']))
+        
         if 'hkcu_policies' in summary:
-            data.append(['HKCU Policies', str(summary['hkcu_policies'].get('total_keys', 0)) + ' keys'])
+            hkcu = summary['hkcu_policies']
+            data.append(['HKCU Policies', str(hkcu.get('total_keys', 0)) + ' keys'])
+            if 'detailed_entries' in hkcu:
+                self.story.append(Paragraph("HKCU Policy Entries:", self.styles['Heading3']))
+                for entry in hkcu['detailed_entries'][:20]:
+                    self.story.append(Paragraph(f"• {entry['key']} ({entry['type']})", self.styles['Normal']))
+        
         if 'services' in summary:
             data.append(['Services', str(summary['services'].get('total_keys', 0)) + ' keys'])
         if 'control' in summary:
