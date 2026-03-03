@@ -58,7 +58,9 @@
 
     <h2>Compliance Check</h2>
     <button onclick="runTest()">Run Test Check</button>
+    <button onclick="generateReport()">Generate PDF Report</button>
     <div id="compliance-result"></div>
+    <p id="report-msg"></p>
 
     <h2>Last System Data</h2>
     <pre id="system-data">No data</pre>
@@ -195,6 +197,28 @@
                 html += '</table>';
                 document.getElementById('compliance-result').innerHTML = html;
                 document.getElementById('system-data').textContent = JSON.stringify(data, null, 2);
+            });
+        }
+
+        function generateReport() {
+            const device = document.getElementById('device-name').value;
+            const owner = document.getElementById('owner-name').value;
+            const scan = document.getElementById('scan-number').value;
+            
+            fetch('/report/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    device_name: device,
+                    owner_name: owner,
+                    scan_number: parseInt(scan)
+                })
+            }).then(r => r.json()).then(d => {
+                if (d.success) {
+                    document.getElementById('report-msg').innerHTML = '<span class="success">Report generated: <a href="' + d.report_path + '" download>Download PDF</a></span>';
+                } else {
+                    document.getElementById('report-msg').innerHTML = '<span class="error">Failed: ' + d.error + '</span>';
+                }
             });
         }
 
