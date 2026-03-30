@@ -59,6 +59,13 @@
     <h2>Compliance Check</h2>
     <button onclick="runTest()">Run Test Check</button>
     <button onclick="generateReport()">Generate PDF Report</button>
+    
+    <div id="progress-container" style="display: none; margin: 15px 0;">
+        <progress id="report-progress" value="0" max="100" style="width: 100%; max-width: 400px; height: 20px;"></progress>
+        <span id="progress-text" style="margin-left: 10px; font-weight: bold;">0%</span>
+        <p style="margin-top: 5px; color: #555;">Analyzing audit dumps and structuring PDF...</p>
+    </div>
+    
     <div id="compliance-result"></div>
     <p id="report-msg"></p>
 
@@ -206,6 +213,25 @@
             const owner = document.getElementById('owner-name').value;
             const scanType = document.getElementById('scan-type').value;
             
+            const progContainer = document.getElementById('progress-container');
+            const progBar = document.getElementById('report-progress');
+            const progText = document.getElementById('progress-text');
+            const reportMsg = document.getElementById('report-msg');
+            
+            reportMsg.innerHTML = '';
+            progContainer.style.display = 'block';
+            progBar.value = 0;
+            progText.textContent = "0%";
+            
+            // Simulate progress to give feedback during potentially long parse
+            let progress = 0;
+            const simInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90; // Wait at 90%
+                progBar.value = progress;
+                progText.textContent = Math.round(progress) + "%";
+            }, 500);
+            
             fetch('/report/generate', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -215,11 +241,23 @@
                     scan_type: scanType
                 })
             }).then(r => r.json()).then(d => {
-                if (d.success) {
-                    document.getElementById('report-msg').innerHTML = '<span class="success">Report generated: <a href="' + d.report_path + '" download>Download PDF</a></span>';
-                } else {
-                    document.getElementById('report-msg').innerHTML = '<span class="error">Failed: ' + d.error + '</span>';
-                }
+                clearInterval(simInterval);
+                progBar.value = 100;
+                progText.textContent = "100%";
+                
+                setTimeout(() => {
+                    progContainer.style.display = 'none';
+                    if (d.success) {
+                        const style = "background: #1f497d; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);";
+                        reportMsg.innerHTML = '<span class="success">Report compiled successfully!</span><br><br><a href="' + d.report_path + '" download style="text-decoration: none;"><button style="' + style + '">Download SEC-AUDIT PDF</button></a>';
+                    } else {
+                        reportMsg.innerHTML = '<span class="error">Failed: ' + d.error + '</span>';
+                    }
+                }, 500); // short delay so user sees 100% completion
+            }).catch(err => {
+                clearInterval(simInterval);
+                progContainer.style.display = 'none';
+                reportMsg.innerHTML = '<span class="error">Network error: ' + err.message + '</span>';
             });
         }
 
