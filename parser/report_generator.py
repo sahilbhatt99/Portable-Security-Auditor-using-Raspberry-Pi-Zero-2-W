@@ -8,7 +8,7 @@ import os
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
@@ -91,15 +91,17 @@ class ReportGenerator:
             ['Calculated Risk Score:', Paragraph(risk_text, self.styles['Normal'])]
         ]
         
-        meta_table = Table(meta_data, colWidths=[2*inch, 3*inch])
+        meta_table = Table(meta_data, colWidths=[2.2*inch, 3.8*inch])
         meta_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e6e6e6')),
             ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#333333')),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
             ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.white),
             ('BOX', (0, 0), (-1, -1), 0.25, colors.lightgrey),
         ]))
@@ -170,11 +172,12 @@ class ReportGenerator:
                 
             data.append([severity, Paragraph(finding, self.styles['CorpNormal'])])
             
-        table = Table(data, colWidths=[1*inch, 5.5*inch])
+        table = Table(data, colWidths=[1.2*inch, 5.3*inch], repeatRows=1)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -250,6 +253,7 @@ class ReportGenerator:
         
     def _add_horizontal_bar(self, title, good_val, bad_val):
         """Draws a horizontal bar chart summarizing asset integrity"""
+        # Minimum Drawing height to prevent empty overlap
         d = Drawing(400, 100)
         bc = HorizontalBarChart()
         bc.x = 80
@@ -263,7 +267,11 @@ class ReportGenerator:
         bc.categoryAxis.categoryNames = [title]
         bc.bars[0].fillColor = colors.HexColor('#1f497d')  # Series 0 (Good)
         bc.bars[1].fillColor = colors.firebrick            # Series 1 (Bad)
+        
+        # Ensure the scale works even if values are zero
         bc.valueAxis.valueMin = 0
+        total = good_val + bad_val
+        bc.valueAxis.valueMax = max(total * 1.1, 10) 
         
         d.add(bc)
         self.story.append(d)

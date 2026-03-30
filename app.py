@@ -201,6 +201,10 @@ def generate_audit_report():
         base_path = os.path.join('uploads', safe_owner, safe_device, date_str, safe_type) + os.path.sep
         output_name = f'{safe_device}_{safe_owner}_{safe_type}_{date_str}_report.pdf'
         
+        # Log absolute path for debugging
+        abs_path = os.path.abspath(base_path)
+        print(f"[REPORT] Searching for audit files in: {abs_path}")
+        
         # Generate report
         report_path = generate_report(base_path, output_name)
         

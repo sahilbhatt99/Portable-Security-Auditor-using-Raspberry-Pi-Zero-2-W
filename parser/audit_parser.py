@@ -5,6 +5,7 @@ Parses registry, firewall, defender, and device data.
 
 import json
 import re
+import os
 from datetime import datetime
 
 
@@ -273,15 +274,25 @@ class AuditParser:
     
     def analyze_all(self, base_path='C:\\'):
         """Analyze all audit files"""
+        
+        # Determine if base_path is empty or missing files, try fallback
+        if not self._file_exists(os.path.join(base_path, 'audit_hklm_policies.txt')):
+            # Check for Full_Audit in CWD
+            if os.path.exists('Full_Audit') and os.path.isdir('Full_Audit'):
+                base_path = 'Full_Audit/'
+            # Check for Full_Audit in Parent Dir
+            elif os.path.exists('../Full_Audit') and os.path.isdir('../Full_Audit'):
+                base_path = '../Full_Audit/'
+                
         files = {
-            'HKLM_Policies': f'{base_path}audit_hklm_policies.txt',
-            'HKCU_Policies': f'{base_path}audit_hkcu_policies.txt',
-            'Services': f'{base_path}audit_services.txt',
-            'Control': f'{base_path}audit_control.txt',
-            'Firewall': f'{base_path}audit_firewall.txt',
-            'Defender': f'{base_path}audit_defender.json',
-            'Drivers': f'{base_path}audit_drivers.txt',
-            'Devices': f'{base_path}audit_devices.txt'
+            'HKLM_Policies': os.path.join(base_path, 'audit_hklm_policies.txt'),
+            'HKCU_Policies': os.path.join(base_path, 'audit_hkcu_policies.txt'),
+            'Services': os.path.join(base_path, 'audit_services.txt'),
+            'Control': os.path.join(base_path, 'audit_control.txt'),
+            'Firewall': os.path.join(base_path, 'audit_firewall.txt'),
+            'Defender': os.path.join(base_path, 'audit_defender.json'),
+            'Drivers': os.path.join(base_path, 'audit_drivers.txt'),
+            'Devices': os.path.join(base_path, 'audit_devices.txt')
         }
         
         results = {}
@@ -332,11 +343,7 @@ class AuditParser:
     
     def _file_exists(self, filepath):
         """Check if file exists"""
-        try:
-            with open(filepath, 'r'):
-                return True
-        except:
-            return False
+        return os.path.exists(filepath)
     
     def get_risk_score(self):
         """Calculate risk score 0-100"""
