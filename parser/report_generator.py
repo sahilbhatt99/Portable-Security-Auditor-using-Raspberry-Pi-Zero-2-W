@@ -1,6 +1,7 @@
 """
 PDF report generator for security audit results.
-Creates highly styled, professional corporate PDF reports with findings and recommendations.
+Creates highly styled, professional corporate PDF reports with findings and recommendations,
+incorporating data graphs and educational narrative.
 """
 
 import os
@@ -10,6 +11,11 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+# Graphics imports for charts
+from reportlab.graphics.shapes import Drawing
+from reportlab.graphics.charts.piecharts import Pie
+from reportlab.graphics.charts.barcharts import HorizontalBarChart
 
 class ReportGenerator:
     """Generates Professional PDF security audit reports"""
@@ -26,6 +32,10 @@ class ReportGenerator:
         self.styles.add(ParagraphStyle(name='CorpHeading1', parent=self.styles['Heading1'], fontName='Helvetica-Bold', fontSize=16, textColor=colors.HexColor('#1f497d'), spaceBefore=20, spaceAfter=10, borderPadding=5, backColor=colors.HexColor('#f2f2f2')))
         self.styles.add(ParagraphStyle(name='CorpHeading2', parent=self.styles['Heading2'], fontName='Helvetica-Bold', fontSize=14, textColor=colors.HexColor('#2e74b5'), spaceBefore=15, spaceAfter=8))
         self.styles.add(ParagraphStyle(name='CorpNormal', parent=self.styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, spaceAfter=6))
+        
+        # Educational Text Style
+        self.styles.add(ParagraphStyle(name='CorpEducational', parent=self.styles['Normal'], fontName='Helvetica-Oblique', fontSize=9, textColor=colors.HexColor('#555555'), spaceAfter=12))
+        
         self.styles.add(ParagraphStyle(name='DangerText', parent=self.styles['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=colors.firebrick))
         self.styles.add(ParagraphStyle(name='WarningText', parent=self.styles['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=colors.darkorange))
         
@@ -44,7 +54,7 @@ class ReportGenerator:
             self._add_findings_section(findings)
             
         self.story.append(PageBreak())
-        self.story.append(Paragraph("DETAILED ANALYSIS", self.styles['CorpHeading1']))
+        self.story.append(Paragraph("DETAILED COMPONENT ANALYSIS", self.styles['CorpHeading1']))
         
         summary = audit_results.get('summary', {})
         if 'defender' in summary:
@@ -78,7 +88,7 @@ class ReportGenerator:
         meta_data = [
             ['Report Date:', audit_results.get('timestamp', 'N/A')],
             ['Target Host:', audit_results.get('hostname', 'Unknown')],
-            ['Risk Score:', Paragraph(risk_text, self.styles['Normal'])]
+            ['Calculated Risk Score:', Paragraph(risk_text, self.styles['Normal'])]
         ]
         
         meta_table = Table(meta_data, colWidths=[2*inch, 3*inch])
@@ -102,9 +112,50 @@ class ReportGenerator:
         if findings:
             summary_text = f"This audit identified <b>{len(findings)} security findings or anomalies</b> requiring attention."
             self.story.append(Paragraph(summary_text, self.styles['DangerText']))
+            
+            # Analyze severities for Pie Chart
+            high_count = sum(1 for f in findings if 'disabled' in f.lower() or 'disabling' in f.lower() or 'unquoted' in f.lower() or 'exposed' in f.lower())
+            med_count = len(findings) - high_count
+            
+            self._add_severity_pie_chart(high_count, med_count)
+            
         else:
             self.story.append(Paragraph("System appears generally secure. No critical security issues detected.", self.styles['CorpNormal']))
             
+        self.story.append(Spacer(1, 0.2*inch))
+
+    def _add_severity_pie_chart(self, high_count, med_count):
+        """Draws a Pie Chart displaying vulnerability severity ratio"""
+        d = Drawing(400, 160)
+        pc = Pie()
+        pc.x = 125
+        pc.y = 20
+        pc.width = 120
+        pc.height = 120
+        
+        data = []
+        labels = []
+        if high_count > 0:
+            data.append(high_count)
+            labels.append(f"HIGH ({high_count})")
+        if med_count > 0:
+            data.append(med_count)
+            labels.append(f"MEDIUM ({med_count})")
+            
+        pc.data = data
+        pc.labels = labels
+        pc.slices.strokeWidth = 0.5
+        
+        # Color mapping: 0=High(Red), 1=Med(Orange) 
+        idx = 0
+        if high_count > 0:
+            pc.slices[idx].fillColor = colors.firebrick
+            idx += 1
+        if med_count > 0:
+            pc.slices[idx].fillColor = colors.darkorange
+            
+        d.add(pc)
+        self.story.append(d)
         self.story.append(Spacer(1, 0.2*inch))
 
     def _add_findings_section(self, findings):
@@ -112,7 +163,6 @@ class ReportGenerator:
         
         data = [['Severity', 'Description']]
         for finding in findings:
-            # simple heuristic for severity styling
             if 'disabled' in finding.lower() or 'disabling' in finding.lower() or 'unquoted' in finding.lower() or 'exposed' in finding.lower():
                 severity = Paragraph("<b>HIGH</b>", self.styles['DangerText'])
             else:
@@ -135,7 +185,10 @@ class ReportGenerator:
         self.story.append(Spacer(1, 0.3*inch))
 
     def _add_defender_section(self, defender):
-        self.story.append(Paragraph("Windows Defender Status", self.styles['CorpHeading2']))
+        self.story.append(Paragraph("Windows Defender Intelligence", self.styles['CorpHeading2']))
+        
+        ed_text = "Windows Defender is the primary line of defense against malicious execution. Disabling Real-time Protection or Behavior Monitoring fully exposes the host to immediate payload execution, ransomware encryption, and persistent backdoors without administrative intervention."
+        self.story.append(Paragraph(ed_text, self.styles['CorpEducational']))
         
         if 'error' in defender:
             self.story.append(Paragraph(f"Error: {defender['error']}", self.styles['DangerText']))
@@ -166,14 +219,24 @@ class ReportGenerator:
         self.story.append(Spacer(1, 0.2*inch))
 
     def _add_drivers_section(self, drivers):
-        self.story.append(Paragraph("Installed Drivers", self.styles['CorpHeading2']))
+        self.story.append(Paragraph("Kernel Driver Integrity", self.styles['CorpHeading2']))
+        
+        ed_text = "Digital Signatures cryptographically verify that kernel-level software originates from a trusted publisher. Unsigned drivers present a catastrophic risk, as malware frequently exploits them or installs custom unsigned drivers to operate a Rootkit deep within the OS kernel, bypassing antivirus hooks."
+        self.story.append(Paragraph(ed_text, self.styles['CorpEducational']))
+        
         if 'error' in drivers:
             self.story.append(Paragraph(f"Error: {drivers['error']}", self.styles['DangerText']))
             return
             
+        td = drivers.get('total_drivers', 0)
+        ud = drivers.get('unsigned_count', 0)
+        
+        # Add visual Bar Chart for Drivers
+        self._add_horizontal_bar(title="Driver Health", good_val=td-ud, bad_val=ud)
+        
         data = [
-            ['Total Drivers Enumerated:', str(drivers.get('total_drivers', 0))],
-            ['Unsigned Drivers Count:', Paragraph(str(drivers.get('unsigned_count', 0)), self.styles['DangerText'] if drivers.get('unsigned_count', 0) > 0 else self.styles['CorpNormal'])]
+            ['Total Drivers Enumerated:', str(td)],
+            ['Unsigned Drivers Count:', Paragraph(str(ud), self.styles['DangerText'] if ud > 0 else self.styles['CorpNormal'])]
         ]
         table = Table(data, colWidths=[3*inch, 2*inch])
         table.setStyle(TableStyle([
@@ -184,9 +247,33 @@ class ReportGenerator:
         ]))
         self.story.append(table)
         self.story.append(Spacer(1, 0.2*inch))
+        
+    def _add_horizontal_bar(self, title, good_val, bad_val):
+        """Draws a horizontal bar chart summarizing asset integrity"""
+        d = Drawing(400, 100)
+        bc = HorizontalBarChart()
+        bc.x = 80
+        bc.y = 20
+        bc.height = 60
+        bc.width = 300
+        
+        # Data format expects multiple series across categories. 
+        # We'll map Series 0 -> Normal, Series 1 -> Vulnerable
+        bc.data = [[good_val], [bad_val]] 
+        bc.categoryAxis.categoryNames = [title]
+        bc.bars[0].fillColor = colors.HexColor('#1f497d')  # Series 0 (Good)
+        bc.bars[1].fillColor = colors.firebrick            # Series 1 (Bad)
+        bc.valueAxis.valueMin = 0
+        
+        d.add(bc)
+        self.story.append(d)
 
     def _add_devices_section(self, devices):
-        self.story.append(Paragraph("Hardware Devices", self.styles['CorpHeading2']))
+        self.story.append(Paragraph("Hardware Devices State", self.styles['CorpHeading2']))
+        
+        ed_text = "Hardware devices reporting failure or error codes (such as Code 10 or Code 43) can indicate failing physical hardware, corrupt driver mapping states, or maliciously tampered peripherals interacting dangerously with the host."
+        self.story.append(Paragraph(ed_text, self.styles['CorpEducational']))
+        
         if 'error' in devices:
             self.story.append(Paragraph(f"Error: {devices['error']}", self.styles['DangerText']))
             return
@@ -206,16 +293,24 @@ class ReportGenerator:
         self.story.append(Spacer(1, 0.2*inch))
 
     def _add_firewall_section(self, firewall):
-        self.story.append(Paragraph("Firewall Rules Analysis", self.styles['CorpHeading2']))
+        self.story.append(Paragraph("Network Firewall Perimeters", self.styles['CorpHeading2']))
+        
+        ed_text = "The Windows Firewall dictates network exposure. Permitting inbound traffic on the 'Public' untrusted profile for sensitive administrative ports (such as SMB/445 or RDP/3389) trivially exposes the host to remote exploitation mapping and automated brute-force attacks across untrusted networks."
+        self.story.append(Paragraph(ed_text, self.styles['CorpEducational']))
+        
         if 'error' in firewall:
             self.story.append(Paragraph(f"Error: {firewall['error']}", self.styles['DangerText']))
             return
         
-        self.story.append(Paragraph(f"Parsed {firewall.get('active_rules', 0)} active inbound firewall rules.", self.styles['CorpNormal']))
+        self.story.append(Paragraph(f"Parsed <b>{firewall.get('active_rules', 0)}</b> active inbound firewall rules.", self.styles['CorpNormal']))
         self.story.append(Spacer(1, 0.2*inch))
 
     def _add_registry_section(self, summary):
-        self.story.append(Paragraph("Registry & Policy Analysis", self.styles['CorpHeading2']))
+        self.story.append(Paragraph("Registry & Local Services", self.styles['CorpHeading2']))
+        
+        ed_text = "The Windows Registry controls core OS operational behavior. Threat actors frequently set policies disabling tools like Task Manager or RegEdit to prevent defenders from killing rogue processes. Furthermore, 'Unquoted Service Paths' are a classic Local Privilege Escalation (LPE) vector where an attacker tricks higher privileged services (SYSTEM) into executing maliciously placed dropped payloads upon reboot."
+        self.story.append(Paragraph(ed_text, self.styles['CorpEducational']))
+        
         data = [['Hive/Category', 'Key Count']]
         if 'hklm_policies' in summary:
             data.append(['HKLM Policies', str(summary['hklm_policies'].get('total_keys', 0))])
@@ -242,19 +337,19 @@ class ReportGenerator:
         
         for finding in findings:
             if 'Real-time protection' in finding:
-                recommendations.append("Immediately enable Windows Defender Real-time Protection.")
+                recommendations.append("Immediately enable Windows Defender Real-time Protection to defend against runtime execution.")
             elif 'Anti-spyware' in finding:
                 recommendations.append("Enable Windows Defender Anti-spyware module.")
             elif 'Unsigned driver' in finding:
-                recommendations.append("Review unsigned drivers identified and replace with verified equivalents.")
+                recommendations.append("Review unsigned drivers identified; sandbox them or replace with strictly digitally verified equivalents.")
             elif 'Problematic device' in finding:
-                recommendations.append("Investigate hardware component errors via Device Manager.")
+                recommendations.append("Investigate hardware component errors via Device Manager GUI mapping.")
             elif 'Unquoted Service Path' in finding:
-                recommendations.append("Patch vulnerable unquoted service paths by modifying the registry ImagePath string to include quotes.")
+                recommendations.append("Patch vulnerable unquoted service paths by modifying the registry ImagePath string to encapsulate the absolute path in double-quotes.")
             elif 'policy' in finding.lower() and 'disabled' in finding.lower():
                 recommendations.append("Re-enable critical administrative tools (Task Manager/RegEdit/CMD).")
             elif 'Exposed Firewall Rule' in finding:
-                recommendations.append("Close unnecessary public inbound firewall ports (ex. 3389, 445).")
+                recommendations.append("Close unnecessary public inbound firewall profile ports (ex. 3389, 445, 5985).")
         
         if not recommendations:
             recommendations.append("Continue monitoring system security settings regularly.")
@@ -268,7 +363,6 @@ class ReportGenerator:
         score = 0
         findings = audit_results.get('findings', [])
         
-        # Heavy weighting for vulnerabilities
         score += len(findings) * 20
         
         summary = audit_results.get('summary', {})
