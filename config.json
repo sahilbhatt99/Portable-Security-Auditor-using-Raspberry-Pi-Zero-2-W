@@ -29,5 +29,9 @@
     "retry_attempts": 3,
     "retry_delay_ms": 5000,
     "wait_for_upload_confirmation": true
+  },
+  "network": {
+    "server_ip": "172.16.0.1",
+    "upload_port": 8000
   }
 }

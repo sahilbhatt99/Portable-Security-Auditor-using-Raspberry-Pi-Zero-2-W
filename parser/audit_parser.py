@@ -20,9 +20,9 @@ class AuditParser:
         }
     
     def parse_registry(self, filepath):
-        """Parse .reg file"""
+        """Parse registry export text file"""
         try:
-            with open(filepath, 'r', encoding='utf-16-le') as f:
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
                 content = f.read()
                 keys = re.findall(r'\[([^\]]+)\]', content)
                 values = re.findall(r'"([^"]+)"=(.+)', content)
@@ -170,25 +170,26 @@ class AuditParser:
             return {'error': 'Failed to parse devices.txt'}
     
     def parse_firewall(self, filepath):
-        """Parse firewall.wfw (binary format - basic check only)"""
+        """Parse firewall ascii text export"""
         try:
-            with open(filepath, 'rb') as f:
-                size = len(f.read())
-                return {'size_bytes': size, 'status': 'exported'}
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
+                content = f.read()
+                size = len(content)
+                return {'size_bytes': size, 'status': 'exported to text'}
         except:
-            return {'error': 'Failed to parse firewall.wfw'}
+            return {'error': 'Failed to parse firewall text'}
     
     def analyze_all(self, base_path='C:\\'):
         """Analyze all audit files"""
         files = {
-            'HKLM_Policies': f'{base_path}HKLM_Policies.reg',
-            'HKCU_Policies': f'{base_path}HKCU_Policies.reg',
-            'Services': f'{base_path}Services.reg',
-            'Control': f'{base_path}Control.reg',
-            'Firewall': f'{base_path}firewall.wfw',
-            'Defender': f'{base_path}defender.json',
-            'Drivers': f'{base_path}drivers.txt',
-            'Devices': f'{base_path}devices.txt'
+            'HKLM_Policies': f'{base_path}audit_hklm_policies.txt',
+            'HKCU_Policies': f'{base_path}audit_hkcu_policies.txt',
+            'Services': f'{base_path}audit_services.txt',
+            'Control': f'{base_path}audit_control.txt',
+            'Firewall': f'{base_path}audit_firewall.txt',
+            'Defender': f'{base_path}audit_defender.json',
+            'Drivers': f'{base_path}audit_drivers.txt',
+            'Devices': f'{base_path}audit_devices.txt'
         }
         
         results = {}

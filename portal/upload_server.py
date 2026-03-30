@@ -14,24 +14,23 @@ logger = logging.getLogger('UploadServer')
 current_scan = {
     'device_name': 'unknown',
     'owner_name': 'unknown',
-    'scan_number': 1
+    'scan_type': 'Full_Audit'
 }
 
-def set_scan_metadata(device_name, owner_name, scan_number):
+def set_scan_metadata(device_name, owner_name, scan_type):
     """Set metadata for current scan"""
     current_scan['device_name'] = device_name
     current_scan['owner_name'] = owner_name
-    current_scan['scan_number'] = scan_number
+    current_scan['scan_type'] = scan_type
 
 def get_upload_directory():
     """Generate upload directory based on current scan metadata"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    date_str = datetime.now().strftime("%Y-%m-%d")
     device = current_scan['device_name'].replace(' ', '_')
     owner = current_scan['owner_name'].replace(' ', '_')
-    scan_num = current_scan['scan_number']
+    scan_type = current_scan['scan_type'].replace(' ', '_')
     
-    dir_name = f"{timestamp}_scan{scan_num}_{device}_{owner}"
-    upload_dir = os.path.join(BASE_UPLOAD_DIR, dir_name)
+    upload_dir = os.path.join(BASE_UPLOAD_DIR, owner, device, date_str, scan_type)
     os.makedirs(upload_dir, exist_ok=True)
     return upload_dir
 

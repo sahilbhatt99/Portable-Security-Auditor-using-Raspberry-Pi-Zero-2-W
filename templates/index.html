@@ -26,7 +26,7 @@
         <tr><th>Field</th><th>Value</th></tr>
         <tr><td>Device Name</td><td><input type="text" id="device-name" value="PC-001" style="width:200px"></td></tr>
         <tr><td>Owner Name</td><td><input type="text" id="owner-name" value="User" style="width:200px"></td></tr>
-        <tr><td>Scan Number</td><td><input type="number" id="scan-number" value="1" min="1" style="width:80px"></td></tr>
+        <tr><td>Scan Type</td><td><input type="text" id="scan-type" value="Full_Audit" style="width:200px"></td></tr>
     </table>
     <button onclick="saveScanInfo()">Save Scan Info</button>
     <p id="scan-msg"></p>
@@ -78,7 +78,7 @@
         function saveScanInfo() {
             const device = document.getElementById('device-name').value;
             const owner = document.getElementById('owner-name').value;
-            const scan = document.getElementById('scan-number').value;
+            const scanType = document.getElementById('scan-type').value;
             
             fetch('/scan/set-metadata', {
                 method: 'POST',
@@ -86,11 +86,12 @@
                 body: JSON.stringify({
                     device_name: device,
                     owner_name: owner,
-                    scan_number: parseInt(scan)
+                    scan_type: scanType
                 })
             }).then(r => r.json()).then(d => {
                 if (d.success) {
-                    document.getElementById('scan-msg').innerHTML = '<span class="success">Scan info saved. Files will be organized by: ' + device + '_' + owner + '_scan' + scan + '</span>';
+                    const today = new Date().toISOString().split("T")[0];
+                    document.getElementById('scan-msg').innerHTML = '<span class="success">Scan info saved. Files will be organized by: ' + owner + '/' + device + '/' + today + '/' + scanType + '</span>';
                 } else {
                     document.getElementById('scan-msg').innerHTML = '<span class="error">Failed to save</span>';
                 }
@@ -203,7 +204,7 @@
         function generateReport() {
             const device = document.getElementById('device-name').value;
             const owner = document.getElementById('owner-name').value;
-            const scan = document.getElementById('scan-number').value;
+            const scanType = document.getElementById('scan-type').value;
             
             fetch('/report/generate', {
                 method: 'POST',
@@ -211,7 +212,7 @@
                 body: JSON.stringify({
                     device_name: device,
                     owner_name: owner,
-                    scan_number: parseInt(scan)
+                    scan_type: scanType
                 })
             }).then(r => r.json()).then(d => {
                 if (d.success) {

