@@ -50,6 +50,10 @@ class ReportGenerator:
         
         self._add_executive_summary(audit_results)
         
+        summary = audit_results.get('summary', {})
+        if 'sysinfo' in summary:
+            self._add_sysinfo_section(summary['sysinfo'])
+        
         findings = audit_results.get('findings', [])
         if findings:
             self._add_findings_section(findings)
@@ -161,6 +165,28 @@ class ReportGenerator:
         self.story.append(d)
         self.story.append(Spacer(1, 0.2*inch))
 
+    def _add_sysinfo_section(self, sysinfo):
+        self.story.append(Paragraph("SYSTEM SPECIFICATIONS", self.styles['CorpHeading2']))
+        
+        if 'error' in sysinfo:
+            self.story.append(Paragraph(f"Error: {sysinfo['error']}", self.styles['DangerText']))
+            return
+            
+        data = [
+            ['Hostname:', Paragraph(sysinfo.get('hostname', 'Unknown'), self.styles['CorpNormal'])],
+            ['Current User:', Paragraph(sysinfo.get('user', 'Unknown'), self.styles['CorpNormal'])],
+            ['Operating System:', Paragraph(sysinfo.get('os', 'Unknown'), self.styles['CorpNormal'])]
+        ]
+        table = Table(data, colWidths=[2*inch, 4.5*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f9f9f9')),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        self.story.append(table)
+        self.story.append(Spacer(1, 0.3*inch))
+
     def _add_findings_section(self, findings):
         block = []
         block.append(Paragraph("SECURITY FINDINGS & ANOMALIES", self.styles['CorpHeading2']))
@@ -224,6 +250,29 @@ class ReportGenerator:
         self.story.append(table)
         self.story.append(Spacer(1, 0.2*inch))
 
+        # Add all settings
+        all_s = defender.get('all_settings', [])
+        if all_s:
+            self.story.append(Spacer(1, 0.2*inch))
+            self.story.append(Paragraph("Complete Defender Settings Dump", self.styles['CorpHeading2']))
+            def_data = [['Setting', 'Value', 'Description']]
+            for s in all_s:
+                def_data.append([
+                    Paragraph(s.get('setting', ''), self.styles['CorpNormal']),
+                    Paragraph(s.get('value', ''), self.styles['CorpNormal']),
+                    Paragraph(s.get('description', ''), self.styles['CorpNormal'])
+                ])
+            def_table = Table(def_data, colWidths=[2.5*inch, 1*inch, 3*inch], repeatRows=1)
+            def_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(def_table)
+            self.story.append(Spacer(1, 0.3*inch))
+
     def _add_drivers_section(self, drivers):
         self.story.append(Paragraph("Kernel Driver Integrity", self.styles['CorpHeading2']))
         
@@ -253,6 +302,29 @@ class ReportGenerator:
         ]))
         self.story.append(table)
         self.story.append(Spacer(1, 0.2*inch))
+        
+        # Add detailed drivers table
+        detailed = drivers.get('detailed_drivers', [])
+        if detailed:
+            self.story.append(Spacer(1, 0.2*inch))
+            self.story.append(Paragraph("Full Driver Inventory", self.styles['CorpHeading2']))
+            driver_data = [['Name', 'Provider', 'Signed']]
+            for d in detailed:
+                driver_data.append([
+                    Paragraph(d.get('published_name', ''), self.styles['CorpNormal']),
+                    Paragraph(d.get('provider', ''), self.styles['CorpNormal']),
+                    Paragraph(str(d.get('signed', '')), self.styles['CorpNormal'])
+                ])
+            driver_table = Table(driver_data, colWidths=[3.2*inch, 2.3*inch, 1*inch], repeatRows=1)
+            driver_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(driver_table)
+            self.story.append(Spacer(1, 0.3*inch))
         
     def _add_horizontal_bar(self, title, good_val, bad_val):
         """Draws a horizontal bar chart summarizing asset integrity"""
@@ -302,6 +374,30 @@ class ReportGenerator:
         ]))
         self.story.append(table)
         self.story.append(Spacer(1, 0.2*inch))
+        
+        # Add detailed devices table
+        detailed = devices.get('detailed_devices', [])
+        if detailed:
+            self.story.append(Spacer(1, 0.2*inch))
+            self.story.append(Paragraph("Full Device Inventory", self.styles['CorpHeading2']))
+            device_data = [['Description', 'Instance ID', 'Status', 'Problem']]
+            for d in detailed:
+                device_data.append([
+                    Paragraph(d.get('description', ''), self.styles['CorpNormal']),
+                    Paragraph(d.get('instance_id', ''), self.styles['CorpNormal']),
+                    Paragraph(d.get('status', ''), self.styles['CorpNormal']),
+                    Paragraph(str(d.get('problem_code', '')), self.styles['CorpNormal'])
+                ])
+            device_table = Table(device_data, colWidths=[2.5*inch, 2.5*inch, 0.8*inch, 0.7*inch], repeatRows=1)
+            device_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(device_table)
+            self.story.append(Spacer(1, 0.3*inch))
 
     def _add_firewall_section(self, firewall):
         self.story.append(Paragraph("Network Firewall Perimeters", self.styles['CorpHeading2']))
@@ -315,6 +411,56 @@ class ReportGenerator:
         
         self.story.append(Paragraph(f"Parsed <b>{firewall.get('active_rules', 0)}</b> active inbound firewall rules.", self.styles['CorpNormal']))
         self.story.append(Spacer(1, 0.2*inch))
+        
+        all_rules = firewall.get('all_rules', [])
+        if all_rules:
+            self.story.append(Spacer(1, 0.2*inch))
+            self.story.append(Paragraph("All Firewall Rules", self.styles['CorpHeading2']))
+            fw_data = [['Name', 'Action', 'Direction', 'Port', 'Severity']]
+            for r in all_rules:
+                sev_c = self.styles['DangerText'] if r.get('severity') == 'HIGH' else self.styles['CorpNormal']
+                fw_data.append([
+                    Paragraph(r.get('name', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('action', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('direction', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('localport', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('severity', ''), sev_c)
+                ])
+            fw_table = Table(fw_data, colWidths=[2.5*inch, 0.8*inch, 0.8*inch, 1.4*inch, 1*inch], repeatRows=1)
+            fw_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(fw_table)
+            self.story.append(Spacer(1, 0.3*inch))
+        
+        all_rules = firewall.get('all_rules', [])
+        if all_rules:
+            self.story.append(Spacer(1, 0.2*inch))
+            self.story.append(Paragraph("All Firewall Rules", self.styles['CorpHeading2']))
+            fw_data = [['Name', 'Action', 'Direction', 'Port', 'Severity']]
+            for r in all_rules:
+                sev_c = self.styles['DangerText'] if r.get('severity') == 'HIGH' else self.styles['CorpNormal']
+                fw_data.append([
+                    Paragraph(r.get('name', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('action', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('direction', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('localport', ''), self.styles['CorpNormal']),
+                    Paragraph(r.get('severity', ''), sev_c)
+                ])
+            fw_table = Table(fw_data, colWidths=[2.5*inch, 0.8*inch, 0.8*inch, 1.4*inch, 1*inch], repeatRows=1)
+            fw_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(fw_table)
+            self.story.append(Spacer(1, 0.3*inch))
 
     def _add_registry_section(self, summary):
         self.story.append(Paragraph("Registry & Local Services", self.styles['CorpHeading2']))
@@ -340,6 +486,26 @@ class ReportGenerator:
             ]))
             self.story.append(table)
         self.story.append(Spacer(1, 0.2*inch))
+        
+        # Add cascading tables for all registry keys
+        for key_name, display in [('hklm_policies', 'HKLM Policies'), ('hkcu_policies', 'HKCU Policies'), ('services', 'Services'), ('control', 'Control')]:
+            reg_obj = summary.get(key_name, {})
+            detail_keys = reg_obj.get('keys', [])
+            if detail_keys:
+                self.story.append(Paragraph(f"Registry Key Dump: {display}", self.styles['CorpHeading2']))
+                reg_data = [['Key Path']]
+                for k in detail_keys:
+                    reg_data.append([Paragraph(k, self.styles['CorpNormal'])])
+                reg_table = Table(reg_data, colWidths=[6.5*inch], repeatRows=1)
+                reg_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ]))
+                self.story.append(reg_table)
+                self.story.append(Spacer(1, 0.3*inch))
 
     def _add_recommendations(self, audit_results):
         self.story.append(Paragraph("ACTIONABLE RECOMMENDATIONS", self.styles['CorpHeading1']))

@@ -53,7 +53,7 @@ class AuditParser:
                 
                 # Extract detailed entries
                 entries = []
-                for key in keys[:100]:  # Limit to first 100
+                for key in keys:
                     entries.append({
                         'key': key,
                         'type': self._classify_registry_key(key)
@@ -61,7 +61,7 @@ class AuditParser:
                 
                 return {
                     'total_keys': len(keys),
-                    'keys': keys[:50],
+                    'keys': keys,
                     'detailed_entries': entries,
                     'vulnerabilities': vulnerabilities
                 }
@@ -112,7 +112,7 @@ class AuditParser:
                     'antispyware_enabled': not data.get('DisableAntiSpyware', True),
                     'behavior_monitoring': not data.get('DisableBehaviorMonitoring', True),
                     'findings': findings,
-                    'all_settings': settings[:50]
+                    'all_settings': settings
                 }
         except:
             return {'error': 'Failed to parse defender.json'}
@@ -175,7 +175,7 @@ class AuditParser:
                     'total_drivers': total_drivers,
                     'unsigned_count': unsigned_count,
                     'vulnerabilities': vulnerabilities,
-                    'detailed_drivers': detailed_drivers[:50]
+                    'detailed_drivers': detailed_drivers
                 }
         except Exception as e:
             return {'error': f'Failed to parse drivers.txt: {str(e)}'}
@@ -224,7 +224,7 @@ class AuditParser:
                     'total_devices': total_devices,
                     'problem_count': problem_count,
                     'vulnerabilities': vulnerabilities,
-                    'detailed_devices': detailed_devices[:50]
+                    'detailed_devices': detailed_devices
                 }
         except Exception as e:
             return {'error': f'Failed to parse devices.txt: {str(e)}'}
@@ -237,6 +237,7 @@ class AuditParser:
                 blocks = re.split(r'Rule Name:\s*', content)
                 
                 vulnerabilities = []
+                all_rules = []
                 active_rules_count = 0
                 
                 for block in blocks[1:]:
@@ -258,20 +259,48 @@ class AuditParser:
                         action = action_m.group(1).strip() if action_m else ''
                         localport = localport_m.group(1).strip() if localport_m else ''
                         
+                        severity = 'LOW'
                         if direction.lower() == 'in' and action.lower() == 'allow' and 'public' in profiles.lower():
                             sensitive_ports = ['445', '3389', '5985', '5986', '22', '23']
                             if localport in sensitive_ports or localport.lower() == 'any':
+                                severity = 'HIGH'
                                 vulnerabilities.append(f"Exposed Firewall Rule: '{name}' allows public inbound traffic on port {localport}")
+
+                        all_rules.append({
+                            'name': name,
+                            'direction': direction,
+                            'action': action,
+                            'profiles': profiles,
+                            'localport': localport,
+                            'severity': severity
+                        })
+
+                # Sort rules by severity (HIGH first)
+                all_rules.sort(key=lambda x: 0 if x['severity'] == 'HIGH' else 1)
 
                 return {
                     'size_bytes': len(content), 
                     'active_rules': active_rules_count,
                     'vulnerabilities': vulnerabilities,
+                    'all_rules': all_rules,
                     'status': 'parsed correctly'
                 }
         except Exception as e:
             return {'error': f'Failed to parse firewall text: {str(e)}'}
     
+    def parse_sysinfo(self, filepath):
+        """Parse system info json"""
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+                return {
+                    'hostname': data.get('hostname', 'Unknown'),
+                    'user': data.get('user', 'Unknown'),
+                    'os': data.get('os', 'Unknown')
+                }
+        except:
+            return {'error': 'Failed to parse sysinfo.json'}
+            
     def analyze_all(self, base_path='C:\\'):
         """Analyze all audit files"""
         
@@ -292,13 +321,20 @@ class AuditParser:
             'Firewall': os.path.join(base_path, 'audit_firewall.txt'),
             'Defender': os.path.join(base_path, 'audit_defender.json'),
             'Drivers': os.path.join(base_path, 'audit_drivers.txt'),
-            'Devices': os.path.join(base_path, 'audit_devices.txt')
+            'Devices': os.path.join(base_path, 'audit_devices.txt'),
+            'SysInfo': os.path.join(base_path, 'audit_sysinfo.json')
         }
         
         results = {}
         all_vulnerabilities = []
         
         # Parse each file
+        if self._file_exists(files['SysInfo']):
+            sysinfo = self.parse_sysinfo(files['SysInfo'])
+            results['sysinfo'] = sysinfo
+            if 'hostname' in sysinfo and sysinfo['hostname'] != 'Unknown':
+                self.results['hostname'] = sysinfo['hostname']
+                
         if self._file_exists(files['HKLM_Policies']):
             results['hklm_policies'] = self.parse_registry(files['HKLM_Policies'])
             all_vulnerabilities.extend(results['hklm_policies'].get('vulnerabilities', []))
