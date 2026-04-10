@@ -24,11 +24,12 @@ class ReportGenerator:
         self.output_path = output_path
         self.doc = SimpleDocTemplate(output_path, pagesize=letter,
                                      rightMargin=72, leftMargin=72,
-                                     topMargin=72, bottomMargin=72)
+                                     topMargin=72, bottomMargin=72,
+                                     allowSplitting=1)
         
         # Custom styles
         self.styles = getSampleStyleSheet()
-        self.styles.add(ParagraphStyle(name='CorpTitle', parent=self.styles['Title'], fontName='Helvetica-Bold', fontSize=24, spaceAfter=20, textColor=colors.HexColor('#1f497d')))
+        self.styles.add(ParagraphStyle(name='CorpTitle', parent=self.styles['Title'], fontName='Helvetica-Bold', fontSize=22, alignment=TA_LEFT, spaceAfter=20, textColor=colors.HexColor('#1f497d')))
         self.styles.add(ParagraphStyle(name='CorpHeading1', parent=self.styles['Heading1'], fontName='Helvetica-Bold', fontSize=16, textColor=colors.HexColor('#1f497d'), spaceBefore=20, spaceAfter=10, borderPadding=5, backColor=colors.HexColor('#f2f2f2')))
         self.styles.add(ParagraphStyle(name='CorpHeading2', parent=self.styles['Heading2'], fontName='Helvetica-Bold', fontSize=14, textColor=colors.HexColor('#2e74b5'), spaceBefore=15, spaceAfter=8))
         self.styles.add(ParagraphStyle(name='CorpNormal', parent=self.styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, spaceAfter=6))
@@ -78,7 +79,7 @@ class ReportGenerator:
     def _add_cover_page(self, audit_results):
         self.story.append(Spacer(1, 2*inch))
         self.story.append(Paragraph("SYSTEM SECURITY AUDIT", self.styles['CorpTitle']))
-        self.story.append(Paragraph("CONFIDENTIAL REPORT", ParagraphStyle(name='Subtitle', parent=self.styles['Title'], fontName='Helvetica', fontSize=14, textColor=colors.gray)))
+        self.story.append(Paragraph("CONFIDENTIAL REPORT", ParagraphStyle(name='Subtitle', parent=self.styles['Title'], fontName='Helvetica', fontSize=14, alignment=TA_LEFT, textColor=colors.gray)))
         self.story.append(Spacer(1, 1*inch))
         
         score = self._get_risk_score(audit_results)
@@ -91,7 +92,7 @@ class ReportGenerator:
             ['Calculated Risk Score:', Paragraph(risk_text, self.styles['Normal'])]
         ]
         
-        meta_table = Table(meta_data, colWidths=[2.2*inch, 3.8*inch])
+        meta_table = Table(meta_data, colWidths=[2.0*inch, 4.5*inch])
         meta_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e6e6e6')),
             ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#333333')),
@@ -161,7 +162,8 @@ class ReportGenerator:
         self.story.append(Spacer(1, 0.2*inch))
 
     def _add_findings_section(self, findings):
-        self.story.append(Paragraph("SECURITY FINDINGS & ANOMALIES", self.styles['CorpHeading2']))
+        block = []
+        block.append(Paragraph("SECURITY FINDINGS & ANOMALIES", self.styles['CorpHeading2']))
         
         data = [['Severity', 'Description']]
         for finding in findings:
@@ -184,8 +186,9 @@ class ReportGenerator:
             ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
             ('BOX', (0, 0), (-1, -1), 0.25, colors.grey),
         ]))
-        self.story.append(table)
-        self.story.append(Spacer(1, 0.3*inch))
+        block.append(table)
+        block.append(Spacer(1, 0.3*inch))
+        self.story.append(KeepTogether(block))
 
     def _add_defender_section(self, defender):
         self.story.append(Paragraph("Windows Defender Intelligence", self.styles['CorpHeading2']))
