@@ -199,30 +199,35 @@ def generate_audit_report():
         safe_type = scan_type.replace(' ', '_')
         
         base_path = os.path.join('uploads', safe_owner, safe_device, date_str, safe_type) + os.path.sep
+        
+        report_dir = os.path.join('reports', safe_owner, safe_device, date_str, safe_type)
+        os.makedirs(report_dir, exist_ok=True)
         output_name = f'{safe_device}_{safe_owner}_{safe_type}_{date_str}_report.pdf'
+        report_filepath = os.path.join(report_dir, output_name)
         
         # Log absolute path for debugging
         abs_path = os.path.abspath(base_path)
         print(f"[REPORT] Searching for audit files in: {abs_path}")
         
         # Generate report
-        report_path = generate_report(base_path, output_name)
+        generate_report(base_path, report_filepath)
         
         return jsonify({
             "success": True,
             "report": output_name,
-            "report_path": f'/report/download/{output_name}'
+            "report_path": f'/report/download/{safe_owner}/{safe_device}/{date_str}/{safe_type}/{output_name}'
         })
     
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-@app.route('/report/download/<filename>')
-def download_report(filename):
+@app.route('/report/download/<owner>/<device>/<date_str>/<scan_type>/<filename>')
+def download_report(owner, device, date_str, scan_type, filename):
     """Download generated report"""
     try:
-        if os.path.exists(filename):
-            return send_file(filename, as_attachment=True)
+        filepath = os.path.join('reports', owner, device, date_str, scan_type, filename)
+        if os.path.exists(filepath):
+            return send_file(filepath, as_attachment=True)
         else:
             return jsonify({"error": "Report not found"}), 404
     except Exception as e:
