@@ -98,10 +98,17 @@ class HIDController:
             self.current_execution = payload_name
             self._log_live(f"Starting execution: {payload_name}")
             self._log_live(f"Total commands: {len(commands)}")
-            self._log_live("Waiting 6 seconds before execution...")
-            time.sleep(8)
+            self._log_live("Waiting 8 seconds before execution...")
+            
+            for _ in range(80):
+                if not self.enabled:
+                    raise Exception("Execution aborted during startup delay: HID disabled")
+                time.sleep(0.1)
             
             for i, cmd in enumerate(commands, 1):
+                if not self.enabled:
+                    raise Exception("Emergency Abort: HID disabled during payload execution")
+                    
                 action = cmd.get('action')
                 
                 if action == 'type':
