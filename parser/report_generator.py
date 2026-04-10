@@ -533,28 +533,8 @@ class ReportGenerator:
             self.story.append(table)
         self.story.append(Spacer(1, 0.2*inch))
         
-        # Add cascading tables for all registry keys
-        for key_name, display in [('hklm_policies', 'HKLM Policies'), ('hkcu_policies', 'HKCU Policies'), ('services', 'Services'), ('control', 'Control')]:
-            reg_obj = summary.get(key_name, {})
-            detail_keys = reg_obj.get('keys', [])
-            if detail_keys:
-                self.story.append(Paragraph(f"Registry Key Dump: {display}", self.styles['CorpHeading2']))
-                reg_data = [['Key Path']]
-                for k in detail_keys:
-                    k_str = str(k)
-                    if len(k_str) > 500:
-                        k_str = k_str[:497] + '...'
-                    reg_data.append([Paragraph(k_str, self.styles['CorpNormal'])])
-                reg_table = Table(reg_data, colWidths=[6.5*inch], repeatRows=1)
-                reg_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
-                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ]))
-                self.story.append(reg_table)
-                self.story.append(Spacer(1, 0.3*inch))
+        # Registry tables have been dropped per request; 
+        # scanning occurs in the background and anomalies are logged to Findings.
 
     def _add_recommendations(self, audit_results):
         self.story.append(Paragraph("ACTIONABLE RECOMMENDATIONS", self.styles['CorpHeading1']))
