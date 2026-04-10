@@ -31,11 +31,32 @@ class AuditParser:
                 
                 # Check for critical disabled policies
                 if re.search(r'"DisableTaskMgr"=dword:00000001', content, re.IGNORECASE):
-                    vulnerabilities.append("Task Manager is disabled by policy (Potential malware activity)")
+                    vulnerabilities.append({
+                        "title": "Task Manager Disabled",
+                        "severity": "HIGH",
+                        "description": "Task Manager is disabled by registry policy",
+                        "evidence": "DisableTaskMgr = 1",
+                        "impact": "Defense evasion / restricted system behavior",
+                        "recommendation": "Enable Task Manager by setting value to 0 or deleting key"
+                    })
                 if re.search(r'"DisableRegistryTools"=dword:00000001', content, re.IGNORECASE):
-                    vulnerabilities.append("Registry Editor is disabled by policy (Potential malware activity)")
+                    vulnerabilities.append({
+                        "title": "Registry Editor Disabled",
+                        "severity": "HIGH",
+                        "description": "Registry tools are disabled by registry policy",
+                        "evidence": "DisableRegistryTools = 1",
+                        "impact": "Defense evasion / restricted system behavior preventing incident response",
+                        "recommendation": "Enable Registry Editor by setting value to 0 or deleting key"
+                    })
                 if re.search(r'"DisableCMD"=dword:00000001', content, re.IGNORECASE):
-                    vulnerabilities.append("Command Prompt is disabled by policy (Potential malware activity)")
+                    vulnerabilities.append({
+                        "title": "Command Prompt Disabled",
+                        "severity": "HIGH",
+                        "description": "Command Prompt is disabled by registry policy",
+                        "evidence": "DisableCMD = 1",
+                        "impact": "Defense evasion / restricted system behavior preventing administrative repair",
+                        "recommendation": "Enable Command Prompt by setting value to 0 or deleting key"
+                    })
                 
                 # Check for Unquoted Service Paths
                 if 'Services' in filepath:
@@ -45,11 +66,28 @@ class AuditParser:
                         key_match = re.search(r'\[([^\]]+)\]', block)
                         if key_match:
                             service_key = key_match.group(1).split('\\')[-1]
-                            path_match = re.search(r'"ImagePath"="([^"]+)"', block)
+                            path_match = re.search(r'"ImagePath"="([^"]+)"', block, re.IGNORECASE)
+                            start_match = re.search(r'"Start"=dword:([0-9a-fA-F]+)', block, re.IGNORECASE)
+                            obj_match = re.search(r'"ObjectName"="([^"]+)"', block, re.IGNORECASE)
+                            
+                            start_val = int(start_match.group(1), 16) if start_match else -1
+                            obj_name = obj_match.group(1).strip() if obj_match else ""
+                            
+                            is_auto = (start_val == 2)
+                            is_system = (obj_name.lower() == "localsystem")
+                            
                             if path_match:
                                 path = path_match.group(1)
                                 if ' ' in path and not path.startswith('"') and not path.startswith('\\SystemRoot'):
-                                    vulnerabilities.append(f"Unquoted Service Path in '{service_key}': {path}")
+                                    sev = "CRITICAL" if (is_auto and is_system) else "HIGH"
+                                    vulnerabilities.append({
+                                        "title": "Unquoted Service Path",
+                                        "severity": sev,
+                                        "description": f"Service path not quoted for service '{service_key}'",
+                                        "evidence": f"ImagePath: {path}\\nAuto-start: {is_auto}\\nContext: {obj_name if obj_name else 'Unknown'}",
+                                        "impact": "Privilege escalation to SYSTEM" if sev == "CRITICAL" else "Local Privilege Escalation (LPE)",
+                                        "recommendation": "Add quotes to service ImagePath"
+                                    })
                 
                 # Extract detailed entries
                 entries = []

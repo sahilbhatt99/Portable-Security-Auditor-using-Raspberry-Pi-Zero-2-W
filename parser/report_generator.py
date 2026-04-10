@@ -188,33 +188,76 @@ class ReportGenerator:
         self.story.append(Spacer(1, 0.3*inch))
 
     def _add_findings_section(self, findings):
-        block = []
-        block.append(Paragraph("SECURITY FINDINGS & ANOMALIES", self.styles['CorpHeading2']))
-        
-        data = [['Severity', 'Description']]
-        for finding in findings:
-            if 'disabled' in finding.lower() or 'disabling' in finding.lower() or 'unquoted' in finding.lower() or 'exposed' in finding.lower():
-                severity = Paragraph("<b>HIGH</b>", self.styles['DangerText'])
-            else:
-                severity = Paragraph("<b>MEDIUM</b>", self.styles['WarningText'])
-                
-            data.append([severity, Paragraph(finding, self.styles['CorpNormal'])])
+        if not findings:
+            return
             
-        table = Table(data, colWidths=[1.2*inch, 5.3*inch], repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
-            ('BOX', (0, 0), (-1, -1), 0.25, colors.grey),
-        ]))
-        block.append(table)
-        block.append(Spacer(1, 0.3*inch))
-        self.story.append(KeepTogether(block))
+        self.story.append(Paragraph("SECURITY FINDINGS & ANOMALIES", self.styles['CorpHeading2']))
+        
+        structured = [f for f in findings if isinstance(f, dict)]
+        general = [f for f in findings if isinstance(f, str)]
+        
+        if structured:
+            self.story.append(Paragraph("Critical & High Vulnerabilities", self.styles['CorpHeading2']))
+            for f in structured:
+                title = f.get('title', 'Unknown finding')
+                sev = f.get('severity', 'HIGH')
+                desc = f.get('description', '')
+                evidence = f.get('evidence', '').replace('\\n', '<br/>')
+                impact = f.get('impact', '')
+                rec = f.get('recommendation', '')
+                
+                if sev == 'CRITICAL':
+                    sev_p = Paragraph(f"<font color='red'><b>{sev}</b></font>", self.styles['CorpNormal'])
+                elif sev == 'HIGH':
+                    sev_p = Paragraph(f"<font color='orange'><b>{sev}</b></font>", self.styles['CorpNormal'])
+                elif sev == 'MED':
+                    sev_p = Paragraph(f"<font color='blue'><b>{sev}</b></font>", self.styles['CorpNormal'])
+                else:
+                    sev_p = Paragraph(f"<b>{sev}</b>", self.styles['CorpNormal'])
+                    
+                card_data = [
+                    [Paragraph(f"<b>{title}</b>", self.styles['CorpNormal']), sev_p],
+                    [Paragraph("<b>Description:</b>", self.styles['CorpNormal']), Paragraph(desc, self.styles['CorpNormal'])],
+                    [Paragraph("<b>Evidence:</b>", self.styles['CorpNormal']), Paragraph(evidence, self.styles['CorpNormal'])],
+                    [Paragraph("<b>Impact:</b>", self.styles['CorpNormal']), Paragraph(impact, self.styles['CorpNormal'])],
+                    [Paragraph("<b>Recommendation:</b>", self.styles['CorpNormal']), Paragraph(rec, self.styles['CorpNormal'])]
+                ]
+                
+                card = Table(card_data, colWidths=[1.5*inch, 5*inch])
+                card.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('PADDING', (0, 0), (-1, -1), 6),
+                ]))
+                self.story.append(KeepTogether([card, Spacer(1, 0.2*inch)]))
+                
+        if general:
+            self.story.append(Spacer(1, 0.1*inch))
+            self.story.append(Paragraph("General Anomalies", self.styles['CorpHeading2']))
+            data = [['Severity', 'Description']]
+            for finding in general:
+                if 'disabled' in finding.lower() or 'disabling' in finding.lower() or 'unquoted' in finding.lower() or 'exposed' in finding.lower():
+                    severity = Paragraph("<b>HIGH</b>", self.styles['DangerText'])
+                else:
+                    severity = Paragraph("<b>MEDIUM</b>", self.styles['WarningText'])
+                    
+                data.append([severity, Paragraph(finding, self.styles['CorpNormal'])])
+                
+            table = Table(data, colWidths=[1.2*inch, 5.3*inch], repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                ('BOX', (0, 0), (-1, -1), 0.25, colors.grey),
+            ]))
+            self.story.append(KeepTogether([table, Spacer(1, 0.3*inch)]))
 
     def _add_defender_section(self, defender):
         self.story.append(Paragraph("Windows Defender Intelligence", self.styles['CorpHeading2']))
@@ -258,14 +301,14 @@ class ReportGenerator:
             def_data = [['Setting', 'Value', 'Description']]
             for s in all_s:
                 val_str = str(s.get('value', ''))
-                if len(val_str) > 500:
-                    val_str = val_str[:497] + '...'
+                if len(val_str) > 120:
+                    val_str = val_str[:117] + '...'
                 def_data.append([
                     Paragraph(s.get('setting', '')[:100], self.styles['CorpNormal']),
                     Paragraph(val_str, self.styles['CorpNormal']),
-                    Paragraph(s.get('description', '')[:200], self.styles['CorpNormal'])
+                    Paragraph(s.get('description', '')[:150], self.styles['CorpNormal'])
                 ])
-            def_table = Table(def_data, colWidths=[2.5*inch, 1*inch, 3*inch], repeatRows=1)
+            def_table = Table(def_data, colWidths=[2.2*inch, 2.3*inch, 2.0*inch], repeatRows=1)
             def_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
