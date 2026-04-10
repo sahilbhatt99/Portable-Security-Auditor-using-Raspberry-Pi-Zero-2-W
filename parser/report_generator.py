@@ -257,10 +257,13 @@ class ReportGenerator:
             self.story.append(Paragraph("Complete Defender Settings Dump", self.styles['CorpHeading2']))
             def_data = [['Setting', 'Value', 'Description']]
             for s in all_s:
+                val_str = str(s.get('value', ''))
+                if len(val_str) > 500:
+                    val_str = val_str[:497] + '...'
                 def_data.append([
-                    Paragraph(s.get('setting', ''), self.styles['CorpNormal']),
-                    Paragraph(s.get('value', ''), self.styles['CorpNormal']),
-                    Paragraph(s.get('description', ''), self.styles['CorpNormal'])
+                    Paragraph(s.get('setting', '')[:100], self.styles['CorpNormal']),
+                    Paragraph(val_str, self.styles['CorpNormal']),
+                    Paragraph(s.get('description', '')[:200], self.styles['CorpNormal'])
                 ])
             def_table = Table(def_data, colWidths=[2.5*inch, 1*inch, 3*inch], repeatRows=1)
             def_table.setStyle(TableStyle([
@@ -495,7 +498,10 @@ class ReportGenerator:
                 self.story.append(Paragraph(f"Registry Key Dump: {display}", self.styles['CorpHeading2']))
                 reg_data = [['Key Path']]
                 for k in detail_keys:
-                    reg_data.append([Paragraph(k, self.styles['CorpNormal'])])
+                    k_str = str(k)
+                    if len(k_str) > 500:
+                        k_str = k_str[:497] + '...'
+                    reg_data.append([Paragraph(k_str, self.styles['CorpNormal'])])
                 reg_table = Table(reg_data, colWidths=[6.5*inch], repeatRows=1)
                 reg_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
