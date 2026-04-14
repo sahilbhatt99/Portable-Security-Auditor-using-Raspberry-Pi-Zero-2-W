@@ -1,6 +1,0 @@
-WIN+R
-WAIT 400
-TYPE notepad
-ENTER
-WAIT 1000
-TYPE hello from pi

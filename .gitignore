@@ -1,3 +1,10 @@
 venv/
 __pycache__/
 *.pyc
+
+# Local runtime directories
+reports/
+uploads/
+
+# IDE configurations
+.vscode/
