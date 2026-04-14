@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 from datetime import datetime
 import json
 import os
@@ -179,6 +179,28 @@ def set_metadata():
             "owner_name": owner_name,
             "scan_type": scan_type
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/payloads/<filename>')
+def serve_payload(filename):
+    """Serve dynamically generated .bat payloads"""
+    try:
+        payload_path = os.path.join('hid', 'payloads', filename)
+        if not os.path.exists(payload_path) or not filename.endswith('.bat'):
+            return jsonify({"error": "Payload not found"}), 404
+            
+        with open(payload_path, 'r') as f:
+            content = f.read()
+            
+        network_config = hid_controller.payload_builder.config.get('network', {})
+        server_ip = network_config.get('server_ip', '172.16.0.1')
+        upload_port = network_config.get('upload_port', 8000)
+        
+        content = content.replace('{{SERVER_IP}}', str(server_ip))
+        content = content.replace('{{UPLOAD_PORT}}', str(upload_port))
+        
+        return Response(content, mimetype='text/plain')
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

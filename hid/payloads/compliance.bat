@@ -1,0 +1,2 @@
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "$fw=(Get-NetFirewallProfile -Profile Domain).Enabled; $av=(Get-MpComputerStatus).AntivirusEnabled; $data=@{hostname=$env:COMPUTERNAME;firewall_enabled=$fw;antivirus_updated=$av;timestamp=\"{{TIMESTAMP}}\"}; Invoke-RestMethod -Uri \"http://{{SERVER_IP}}/check\" -Method POST -Body ($data|ConvertTo-Json) -ContentType \"application/json\""
