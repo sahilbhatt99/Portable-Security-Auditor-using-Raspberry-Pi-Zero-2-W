@@ -5,7 +5,7 @@ USB HID gadget for automated Windows security auditing with Raspberry Pi Zero 2 
 ## Features
 
 - **USB HID Keyboard Emulation** - Automated keystroke injection
-- **14 Security Audit Payloads** - Registry, firewall, defender, drivers, devices
+- **20 Security Audit Payloads** - Registry, firewall, defender, drivers, devices, RSOP, secedit, auditpol
 - **Auto-Upload to Pi** - Files automatically sent to Pi via HTTP
 - **Web Dashboard** - Control and monitor from browser
 - **Live Execution Logs** - Real-time command feedback
@@ -102,7 +102,14 @@ Files saved to: `uploads/YYYYMMDD_HHMMSS_scanN_device_owner/`
 | `export_defender` | Defender settings | defender.json |
 | `export_drivers` | Driver list | drivers.txt |
 | `export_devices` | Device list | devices.txt |
-| `audit_and_upload` | All exports + upload | All 8 files |
+| `full_audit` | All exports + upload | All 9 files |
+| `export_registry_hkcu` | HKCU policy registry query (enforced state) | audit_hkcu_registry.txt |
+| `export_rsop_computer` | RSOP computer namespace via WMI | audit_rsop_computer.json |
+| `export_rsop_user` | RSOP user namespace via CIM | audit_rsop_user.json |
+| `export_secedit` | Security policy (account, user rights, options) | audit_secpol.cfg |
+| `export_auditpol` | Advanced audit policies (all categories) | audit_auditpol.txt |
+| `export_net_users` | Local user accounts + logon restrictions | audit_net_users.txt |
+| `export_gp_cache` | Group Policy cache (applied GPO GUIDs) | audit_gp_cache.json |
 | `upload_files` | Upload existing files | All 8 files |
 
 ## Project Structure

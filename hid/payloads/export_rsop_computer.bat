@@ -1,0 +1,2 @@
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-WmiObject -Namespace 'root\rsop\computer' -Class RSOP_PolicySetting | Select-Object Name,Setting,KeyName,ValueName | ConvertTo-Json -Depth 5 | Out-File C:\audit_rsop_computer.json -Encoding ascii; Invoke-WebRequest -Uri \"http://{{SERVER_IP}}:{{UPLOAD_PORT}}\" -Method POST -InFile C:\audit_rsop_computer.json -Headers @{\"X-Filename\"=\"audit_rsop_computer.json\"} -UseBasicParsing"

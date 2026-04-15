@@ -1,0 +1,2 @@
+@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance -Namespace root\rsop\user -ClassName RSOP_PolicySetting | Select-Object Name,Setting,KeyName,ValueName | ConvertTo-Json -Depth 5 | Out-File C:\audit_rsop_user.json -Encoding ascii; Invoke-WebRequest -Uri \"http://{{SERVER_IP}}:{{UPLOAD_PORT}}\" -Method POST -InFile C:\audit_rsop_user.json -Headers @{\"X-Filename\"=\"audit_rsop_user.json\"} -UseBasicParsing"
