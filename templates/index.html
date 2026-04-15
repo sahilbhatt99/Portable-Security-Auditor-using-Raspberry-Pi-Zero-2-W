@@ -14,7 +14,32 @@
         .success { color: green; }
         .error { color: red; }
         pre { background: #fff; border: 1px solid #000; padding: 10px; overflow: auto; }
-        select { padding: 5px; width: 100%; max-width: 400px; }
+
+        /* Edition Toggle */
+        .edition-toggle { display: flex; gap: 0; margin: 10px 0 16px 0; border: 2px solid #333; width: fit-content; }
+        .edition-toggle label { padding: 8px 20px; cursor: pointer; background: #ddd; font-weight: bold; font-size: 14px; user-select: none; }
+        .edition-toggle input[type=radio] { display: none; }
+        .edition-toggle input[type=radio]:checked + label { background: #333; color: #fff; }
+        .edition-toggle label:hover { background: #bbb; }
+        .edition-toggle input[type=radio]:checked + label:hover { background: #333; }
+        .edition-badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
+        .badge-home { background: #4caf50; color: #fff; }
+        .badge-pro  { background: #1976d2; color: #fff; }
+        .badge-both { background: #888; color: #fff; }
+
+        /* Payload Radio List */
+        #payload-list { max-width: 700px; }
+        .payload-group { margin: 10px 0; border: 1px solid #bbb; background: #fff; }
+        .payload-group-title { background: #ccc; padding: 5px 10px; font-weight: bold; font-size: 13px; border-bottom: 1px solid #bbb; }
+        .payload-item { display: flex; align-items: flex-start; padding: 7px 12px; border-bottom: 1px solid #eee; gap: 10px; }
+        .payload-item:last-child { border-bottom: none; }
+        .payload-item input[type=radio] { margin-top: 3px; cursor: pointer; flex-shrink: 0; }
+        .payload-item label { cursor: pointer; line-height: 1.4; }
+        .payload-name { font-weight: bold; font-size: 13px; }
+        .payload-desc { font-size: 11px; color: #555; }
+        .payload-item.incompatible { opacity: 0.35; pointer-events: none; }
+        .payload-item.incompatible label { cursor: not-allowed; }
+        .incompatible-note { font-size: 10px; color: #c00; display: block; margin-top: 1px; }
     </style>
 </head>
 <body>
@@ -46,10 +71,19 @@
     <p id="hid-msg"></p>
 
     <h2>Execute Payload</h2>
-    <select id="payload">
-        <option value="">Select payload...</option>
-    </select><br>
-    <button onclick="executePayload()">Execute</button>
+
+    <p style="margin-bottom:4px; font-weight:bold;">Target Windows Edition:</p>
+    <div class="edition-toggle">
+        <input type="radio" name="edition" id="ed-home" value="home" checked onchange="filterPayloads()">
+        <label for="ed-home">🏠 Home</label>
+        <input type="radio" name="edition" id="ed-pro" value="pro" onchange="filterPayloads()">
+        <label for="ed-pro">💼 Professional / Enterprise</label>
+    </div>
+    <p id="edition-note" style="font-size:12px; color:#555; margin:0 0 12px 0;">Showing Home-compatible payloads only. Incompatible payloads are greyed out.</p>
+
+    <div id="payload-list">Loading payloads...</div>
+
+    <button onclick="executePayload()" style="margin-top:10px;">▶ Execute Selected Payload</button>
     <button onclick="clearLog()">Clear Log</button>
     <p id="exec-msg"></p>
     
@@ -105,14 +139,102 @@
             });
         }
 
+        // Payloads that require Pro/Enterprise (incompatible with Home)
+        const PRO_ONLY = new Set([
+            'export_secedit',
+            'export_rsop_computer',
+            'export_rsop_user',
+            'export_gp_cache'
+        ]);
+
+        // Category groupings for the radio list
+        const GROUPS = [
+            { title: '🔧 Utility',              keys: ['test', 'sysinfo', 'compliance'] },
+            { title: '📋 Registry Exports',      keys: ['export_policies', 'export_user_policies', 'export_registry_hkcu', 'export_services', 'export_control'] },
+            { title: '🔒 Security Config',       keys: ['export_firewall', 'export_defender', 'export_secedit', 'export_auditpol'] },
+            { title: '🖥️ Hardware',              keys: ['export_drivers', 'export_devices'] },
+            { title: '📊 RSOP / Group Policy',   keys: ['export_rsop_computer', 'export_rsop_user', 'export_gp_cache'] },
+            { title: '👤 User Accounts',         keys: ['export_net_users'] },
+            { title: '🚀 Combined',              keys: ['full_audit', 'upload_files'] },
+        ];
+
+        let ALL_PAYLOADS = {};
+
         function loadPayloads() {
             fetch('/hid/payloads').then(r => r.json()).then(p => {
-                const sel = document.getElementById('payload');
-                sel.innerHTML = '<option value="">Select payload...</option>';
-                for (const [k, v] of Object.entries(p)) {
-                    sel.innerHTML += `<option value="${k}">${v.name}</option>`;
-                }
+                ALL_PAYLOADS = p;
+                renderPayloads();
             });
+        }
+
+        function renderPayloads() {
+            const edition = document.querySelector('input[name=edition]:checked').value;
+            const listEl = document.getElementById('payload-list');
+            const note   = document.getElementById('edition-note');
+
+            note.textContent = edition === 'home'
+                ? 'Showing Home-compatible payloads only. Incompatible payloads are greyed out.'
+                : 'Showing all payloads — Professional / Enterprise edition selected.';
+
+            let html = '';
+            GROUPS.forEach(group => {
+                // Only render group if at least one key exists in fetched payloads
+                const validKeys = group.keys.filter(k => ALL_PAYLOADS[k]);
+                if (validKeys.length === 0) return;
+
+                html += `<div class="payload-group">`;
+                html += `<div class="payload-group-title">${group.title}</div>`;
+
+                validKeys.forEach(k => {
+                    const v = ALL_PAYLOADS[k];
+                    const isProOnly = PRO_ONLY.has(k);
+                    const incompatible = (edition === 'home' && isProOnly);
+                    const badge = isProOnly
+                        ? '<span class="edition-badge badge-pro">Pro/Enterprise</span>'
+                        : '<span class="edition-badge badge-both">All editions</span>';
+                    const incompatibleNote = incompatible
+                        ? '<span class="incompatible-note">⚠ Not supported on Windows Home</span>'
+                        : '';
+
+                    html += `
+                        <div class="payload-item${incompatible ? ' incompatible' : ''}">
+                            <input type="radio" name="payload" id="p-${k}" value="${k}" ${incompatible ? 'disabled' : ''}>
+                            <label for="p-${k}">
+                                <span class="payload-name">${v.name}${badge}</span><br>
+                                <span class="payload-desc">${v.description}</span>
+                                ${incompatibleNote}
+                            </label>
+                        </div>`;
+                });
+
+                html += `</div>`;
+            });
+
+            // Fallback for payloads not in any group
+            const groupedKeys = GROUPS.flatMap(g => g.keys);
+            const ungrouped = Object.keys(ALL_PAYLOADS).filter(k => !groupedKeys.includes(k));
+            if (ungrouped.length > 0) {
+                html += `<div class="payload-group">`;
+                html += `<div class="payload-group-title">📦 Other</div>`;
+                ungrouped.forEach(k => {
+                    const v = ALL_PAYLOADS[k];
+                    html += `
+                        <div class="payload-item">
+                            <input type="radio" name="payload" id="p-${k}" value="${k}">
+                            <label for="p-${k}">
+                                <span class="payload-name">${v.name}</span><br>
+                                <span class="payload-desc">${v.description}</span>
+                            </label>
+                        </div>`;
+                });
+                html += `</div>`;
+            }
+
+            listEl.innerHTML = html;
+        }
+
+        function filterPayloads() {
+            renderPayloads();
         }
 
         function enableHID() {
@@ -130,7 +252,8 @@
         }
 
         function executePayload() {
-            const p = document.getElementById('payload').value;
+            const selected = document.querySelector('input[name=payload]:checked');
+            const p = selected ? selected.value : '';
             if (!p) { alert('Select a payload'); return; }
             document.getElementById('live-log').textContent = 'Starting execution...';
             startLogPolling();
