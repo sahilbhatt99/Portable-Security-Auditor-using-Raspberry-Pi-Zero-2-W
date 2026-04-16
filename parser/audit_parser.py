@@ -703,11 +703,13 @@ class AuditParser:
             with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
                 content = f.read()
 
-            scope = 'Computer' if 'Computer' in filepath else 'User'
+            scope = 'Computer' if 'computer' in filepath.lower() else 'User'
             
-            # 1. Parse GPOs
+            # 1. Parse GPOs (Flexible header matching)
             gpos = []
-            applied_match = re.search(r'Applied Group Policy Objects[\s\-]+([\s\S]+?)(?:The following GPOs were not applied|Last time Group Policy was applied|The user is a part|Resultant Set|$)', content, re.IGNORECASE)
+            # Applied GPOs
+            applied_pattern = r'Applied Group Policy Objects.*?(?:\r?\n)[\s\-]+([\s\S]+?)(?:The following GPOs were not applied|Last time Group Policy was applied|The user is a part|Resultant Set|$)'
+            applied_match = re.search(applied_pattern, content, re.IGNORECASE)
             if applied_match:
                 block = applied_match.group(1)
                 for i, line in enumerate(block.strip().splitlines()):
@@ -715,17 +717,69 @@ class AuditParser:
                     if name and not name.startswith('---') and name.lower() != 'n/a' and len(name) > 1:
                         gpos.append({'name': name, 'scope': scope, 'status': 'Applied', 'order': i + 1})
 
-            not_applied_match = re.search(r'The following GPOs were not applied[\s\-]+([\s\S]+?)(?:\n\n|Last time|The user is a part|Resultant Set|$)', content, re.IGNORECASE)
+            # Not Applied GPOs
+            not_applied_pattern = r'The following GPOs were not applied.*?(?:\r?\n)[\s\-]+([\s\S]+?)(?:\r?\n\r?\n|Last time|The user is a part|Resultant Set|$)'
+            not_applied_match = re.search(not_applied_pattern, content, re.IGNORECASE)
             if not_applied_match:
                 block = not_applied_match.group(1)
                 for line in block.strip().splitlines():
                     name = line.strip()
-                    reason_match = re.search(r'Reason:\s*(.+)', block, re.IGNORECASE)
-                    reason = reason_match.group(1).strip() if reason_match else 'Unknown'
                     if name and not name.startswith('---') and not name.lower().startswith('reason') and name.lower() != 'n/a' and len(name) > 1:
+                        reason_match = re.search(r'Reason:\s*(.+)', block, re.IGNORECASE)
+                        reason = reason_match.group(1).strip() if reason_match else 'Unknown'
                         gpos.append({'name': name, 'scope': scope, 'status': f'Not Applied ({reason})', 'order': '-'})
 
-            # 2. Parse User Info
+            # 2. Detailed RSoP Settings Extraction
+            detailed_settings = []
+            
+            # Helper to parse Registry/Template like blocks
+            # Look for: "Registry Settings", "Administrative Templates", "Security Options"
+            sections = {
+                'Registry Settings': r'Registry Settings[\s\-]+([\s\S]+?)(?:\r?\n\s*\r?\n\s*[A-Z][a-z]+ [A-Z][a-z]+|Resultant Set|$)',
+                'Administrative Templates': r'Administrative Templates[\s\-]+([\s\S]+?)(?:\r?\n\s*\r?\n\s*[A-Z][a-z]+ [A-Z][a-z]+|Resultant Set|$)',
+                'Security Options': r'Security Options[\s\-]+([\s\S]+?)(?:\r?\n\s*\r?\n\s*[A-Z][a-z]+ [A-Z][a-z]+|Resultant Set|$)'
+            }
+
+            for section_name, pattern in sections.items():
+                match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    block = match.group(1)
+                    current_gpo = "Unknown"
+                    current_entry = {}
+                    
+                    for line in block.splitlines():
+                        line = line.strip()
+                        if not line or line.startswith('---'): continue
+                        
+                        if line.startswith('GPO:'):
+                            # Save previous if it exists
+                            if 'setting' in current_entry:
+                                detailed_settings.append(current_entry)
+                            current_gpo = line.replace('GPO:', '').strip()
+                            current_entry = {'section': section_name, 'gpo': current_gpo}
+                        elif any(x in line for x in ['KeyName:', 'Setting:', 'Folder Id:', 'Policy:']):
+                            # If we already have a setting in the same entry without a state, save it first
+                            if 'setting' in current_entry:
+                                detailed_settings.append(current_entry)
+                                current_entry = {'section': section_name, 'gpo': current_gpo}
+                            
+                            val = line.split(':', 1)[1].strip()
+                            current_entry['setting'] = val
+                        elif 'ValueName:' in line:
+                            current_entry['value_name'] = line.split(':', 1)[1].strip()
+                        elif 'Value:' in line:
+                            current_entry['value'] = line.split(':', 1)[1].strip()
+                        elif 'State:' in line:
+                            current_entry['state'] = line.split(':', 1)[1].strip()
+                            # Entry complete
+                            detailed_settings.append(current_entry)
+                            current_entry = {'section': section_name, 'gpo': current_gpo}
+            
+            # Finalize last entry
+            if current_entry and 'setting' in current_entry:
+                detailed_settings.append(current_entry)
+
+            # 3. Parse Identity Context
             user_info = {}
             os_match = re.search(r'OS Version:\s*(.+)', content)
             if os_match: user_info['os_version'] = os_match.group(1).strip()
@@ -736,25 +790,25 @@ class AuditParser:
             user_match = re.search(r'RSOP data for\s+(.+?)\s+on', content)
             if user_match: user_info['username'] = user_match.group(1).strip()
 
-            # 3. Parse Groups
+            # 4. Parse Security Groups
             groups = []
-            groups_match = re.search(r'The user is a part of the following security groups[\s\-]+([\s\S]+?)(?:\n\n|The user has|$)', content, re.IGNORECASE)
+            groups_match = re.search(r'The (?:user|computer) is a part of the following security groups[\s\-]+([\s\S]+?)(?:\n\n|\r\n\r\n|The user has|Resultant Set|$)', content, re.IGNORECASE)
             if groups_match:
                 for line in groups_match.group(1).strip().splitlines():
                     val = line.strip()
-                    if val and not val.startswith('---'):
+                    if val and not val.startswith('---') and val.lower() != 'n/a':
                         groups.append(val)
 
-            # 4. Parse Privileges
+            # 5. Parse Privileges
             privileges = []
-            privs_match = re.search(r'The user has the following security privileges[\s\-]+([\s\S]+?)(?:\n\n|Resultant Set|$)', content, re.IGNORECASE)
+            privs_match = re.search(r'The user has the following security privileges[\s\-]+([\s\S]+?)(?:\n\n|\r\n\r\n|Resultant Set|$)', content, re.IGNORECASE)
             if privs_match:
                 for line in privs_match.group(1).strip().splitlines():
                     val = line.strip()
-                    if val and not val.startswith('---'):
+                    if val and not val.startswith('---') and val.lower() != 'n/a':
                         privileges.append(val)
 
-            # 5. Normalize Privileges
+            # 6. Normalize Privileges
             priv_map = {
                 "Debug programs": "SeDebugPrivilege",
                 "Impersonate a client after authentication": "SeImpersonatePrivilege",
@@ -775,41 +829,55 @@ class AuditParser:
                 else:
                     normalized_privs.append(p)
 
-            # 6. Risk Interpretation Engine
+            # 7. Enhanced Risk Engine
             risk = "LOW"
             findings = []
             recommendations = []
             
+            # Privilege Risks
             is_admin = any('Administrators' in g for g in groups)
-            if is_admin:
-                findings.append("User has local administrative privileges.")
+            if is_admin: findings.append("User has local administrative privileges.")
                 
-            has_debug = "SeDebugPrivilege" in normalized_privs
-            has_impersonate = "SeImpersonatePrivilege" in normalized_privs
-            has_backup = "SeBackupPrivilege" in normalized_privs
-            has_restore = "SeRestorePrivilege" in normalized_privs
-            has_ownership = "SeTakeOwnershipPrivilege" in normalized_privs
+            crit_privs = ["SeDebugPrivilege", "SeImpersonatePrivilege"]
+            high_privs = ["SeBackupPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege"]
             
-            if has_debug or has_impersonate:
-                risk = "CRITICAL"
-                if has_debug: findings.append("CRITICAL: User has SeDebugPrivilege (can inject into SYSTEM processes).")
-                if has_impersonate: findings.append("CRITICAL: User has SeImpersonatePrivilege (vulnerable to token abuse/potato attacks).")
-                recommendations.append("Remove SeDebugPrivilege and SeImpersonatePrivilege from this user or service account.")
-            elif has_backup or has_restore or has_ownership:
-                if risk != "CRITICAL": risk = "HIGH"
-                findings.append("HIGH: User has broad system access privileges (Backup/Restore/TakeOwnership).")
-                recommendations.append("Apply least privilege principle and remove broad system access rights if not required.")
+            for p in normalized_privs:
+                if p in crit_privs:
+                    risk = "CRITICAL"
+                    findings.append(f"CRITICAL: User has {p} (High risk of SYSTEM elevation).")
+                elif p in high_privs and risk != "CRITICAL":
+                    risk = "HIGH"
+                    findings.append(f"HIGH: User has {p} (Broad system access).")
+
+            # GPO-based Risks
+            for s in detailed_settings:
+                sett = s.get('setting', '').lower()
+                vn = s.get('value_name', '').lower()
+                state = s.get('state', '').lower()
+                val = s.get('value', '').lower()
                 
-            if is_admin and risk == "CRITICAL":
-                findings.append("User effectively has FULL SYSTEM-LEVEL CONTROL.")
-                recommendations.append("Limit administrative privileges for daily operation accounts.")
+                # Check setting OR value_name for UAC
+                is_uac = 'uac' in sett or 'uac' in vn or 'enablelua' in sett or 'enablelua' in vn
+                if is_uac and ('disabled' in state or '0' in val):
+                    risk = "CRITICAL"
+                    findings.append("CRITICAL: UAC/EnableLUA is strictly DISABLED via GPO.")
+                
+                if 'remotedesktop' in sett and 'enabled' in state:
+                    if risk not in ["CRITICAL"]: risk = "HIGH"
+                    findings.append("HIGH: Remote Desktop (RDP) is forced ENABLED via GPO.")
+                elif 'legalnotice' in sett and 'disabled' in state:
+                    findings.append("MED: Logon legal notice is disabled.")
+                elif 'macros' in sett and 'enabled' in state:
+                    if risk not in ["CRITICAL", "HIGH"]: risk = "HIGH"
+                    findings.append("HIGH: VBA Macros are enabled via GPO (potential phishing vector).")
 
             return {
                 'gpos': gpos, 
                 'scope': scope,
                 'user_info': user_info,
-                'groups': groups,
-                'privileges': normalized_privs,
+                'groups': sorted(list(set(groups))),
+                'privileges': sorted(list(set(normalized_privs))),
+                'detailed_settings': detailed_settings,
                 'risk': risk,
                 'findings': findings,
                 'recommendations': recommendations
@@ -819,12 +887,30 @@ class AuditParser:
 
 
     def parse_gp_cache(self, filepath):
+        """Extract GPO History and timestamps from the local cache metadata"""
         try:
             with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
                 data = json.load(f)
-                return {'cache_count': len(data) if isinstance(data, list) else 1, 'data': data}
-        except:
-            return {'error': 'Failed to parse gp cache'}
+            
+            if not isinstance(data, list):
+                data = [data]
+                
+            refined_data = []
+            for item in data:
+                refined_data.append({
+                    'name': os.path.basename(item.get('FullName', 'Unknown')),
+                    'last_modified': item.get('LastWriteTime', 'Unknown'),
+                    'size': item.get('Length', 0),
+                    'path': item.get('FullName', 'Unknown')
+                })
+                
+            return {
+                'cache_count': len(refined_data), 
+                'data': refined_data,
+                'findings': ["Possible lingering offline GPO configuration detected." if len(refined_data) > 3 else "Normal GPO cache state."]
+            }
+        except Exception as e:
+            return {'error': f'Failed to parse gp cache: {str(e)}'}
             
     def analyze_all(self, base_path='C:\\'):
         """Analyze all audit files"""

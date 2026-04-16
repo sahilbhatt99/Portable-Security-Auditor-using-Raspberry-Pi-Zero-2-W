@@ -581,16 +581,50 @@ class ReportGenerator:
         self.story.append(Paragraph(", ".join(users), self.styles['CorpNormal']))
         self.story.append(Spacer(1, 0.3*inch))
         
-    def _add_gp_cache_section(self, gp_cache):
-        self.story.append(Paragraph("Group Policy Cache", self.styles['CorpHeading2']))
-        if 'error' in gp_cache:
-            self.story.append(Paragraph(f"Note: {gp_cache['error']}", self.styles['CorpNormal']))
-            self.story.append(Spacer(1, 0.3*inch))
-            return
+    def _add_detailed_gpo_settings(self, settings):
+        """Renders detailed RSoP data tables (Registry/Templates/Security)"""
+        self.story.append(Paragraph("Detailed GPO Applied Settings", self.styles['CorpHeading2']))
+        
+        # Group by section for readability
+        sections = {}
+        for s in settings:
+            sec = s.get('section', 'Other Policies')
+            if sec not in sections: sections[sec] = []
+            sections[sec].append(s)
             
-        count = gp_cache.get('cache_count', 0)
-        self.story.append(Paragraph(f"Found <b>{count}</b> cached Group Policy objects residing locally on disk.", self.styles['CorpNormal']))
-        self.story.append(Spacer(1, 0.3*inch))
+        for sec_name, sec_items in sections.items():
+            self.story.append(Paragraph(f"Category: {sec_name}", self.styles['CorpHeading2']))
+            
+            data = [['GPO Source', 'Setting / Key', 'State / Value']]
+            for item in sec_items[:100]:  # Cap at 100 per section for PDF stability
+                gpo = item.get('gpo', 'N/A')
+                setting = item.get('setting', 'N/A')
+                state = item.get('state', item.get('value', 'N/A'))
+                
+                # Truncate long strings
+                if len(setting) > 100: setting = setting[:97] + "..."
+                if len(state) > 100: state = state[:97] + "..."
+                
+                row_style = self.styles['DangerText'] if any(x in state.lower() for x in ['disabled', 'enabled']) and any(y in setting.lower() for y in ['uac', 'firewall', 'defender', 'rdp']) else self.styles['CorpNormal']
+                
+                data.append([
+                    Paragraph(gpo, self.styles['CorpNormal']),
+                    Paragraph(setting, self.styles['CorpNormal']),
+                    Paragraph(state, row_style)
+                ])
+                
+            if len(sec_items) > 100:
+                data.append([Paragraph(f"... and {len(sec_items)-100} more entries.", self.styles['CorpEducational']), "", ""])
+
+            table = Table(data, colWidths=[1.8*inch, 3.2*inch, 1.5*inch], repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('PADDING', (0, 0), (-1, -1), 4),
+            ]))
+            self.story.append(KeepTogether([table, Spacer(1, 0.2*inch)]))
 
     def _add_unified_security_context(self, summary):
         self.story.append(Paragraph("Unified Security Policy & Context Analysis", self.styles['CorpHeading2']))
@@ -674,6 +708,14 @@ class ReportGenerator:
             ]))
             self.story.append(gpo_table)
             self.story.append(Spacer(1, 0.3*inch))
+
+            # Display Detailed Settings
+            all_detailed = []
+            if gpu and gpu.get('detailed_settings'): all_detailed.extend(gpu['detailed_settings'])
+            if gpc and gpc.get('detailed_settings'): all_detailed.extend(gpc['detailed_settings'])
+            
+            if all_detailed:
+                self._add_detailed_gpo_settings(all_detailed)
         else:
             self.story.append(Paragraph("No Active GPOs Detected. Dumping explicit Local Security Policy configurations.", self.styles['CorpEducational']))
             self.story.append(Spacer(1, 0.2*inch))
