@@ -94,13 +94,14 @@ class Handler(BaseHTTPRequestHandler):
             remaining = expected - _received_files
             
             logger.info(f"✓ Received: {filename} ({length} bytes) [{len(_received_files)}/{len(expected)}]")
+            
+            if remaining:
+                logger.info(f"   Remaining files for '{scan_type}': {', '.join(sorted(remaining))}")
 
             # Fire task complete only once when all expected files have arrived
             if expected and not remaining and not _task_completed:
                 _task_completed = True
                 logger.info(f"✅ TASK COMPLETED — All {len(expected)} files received for scan '{scan_type}'.")
-            elif remaining:
-                logger.info(f"   Waiting for: {', '.join(sorted(remaining))}")
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain')
