@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Portable Security Auditor - Startup Script
-# Run this script to start the Flask application
+# Portable Security Auditor - Execution Script
+# Focuses on health checks and starting the application.
 
 echo "==================================="
 echo "Portable Security Auditor"
@@ -9,30 +9,14 @@ echo "Raspberry Pi Zero 2 W"
 echo "==================================="
 echo ""
 
-# Check if venv exists
+# 1. Environment Verification
 if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+    echo "✗ Virtual environment not found. Please run setup first:"
+    echo "  sudo ./setup.sh"
+    exit 1
 fi
 
-# Activate venv
-echo "Activating virtual environment..."
-source venv/bin/activate
-
-# Install/update dependencies
-echo "Installing system dependencies for PDF generation..."
-sudo apt-get update -qq
-sudo apt-get install -y python3-dev libjpeg-dev zlib1g-dev libfreetype6-dev
-
-echo "Installing Python dependencies..."
-pip install -q -r requirements.txt
-
-# Create uploads directory
-echo "Creating uploads directory..."
-mkdir -p uploads
-
-# Check HID device
-echo ""
+# 2. HID Device Health Check
 echo "Checking HID device..."
 if [ -e "/dev/hidg0" ]; then
     echo "✓ HID device found: /dev/hidg0"
@@ -41,48 +25,31 @@ else
     echo "  Run: sudo modprobe g_hid"
 fi
 
-# Test imports
-echo ""
+# 3. Component Integration Check
 echo "Testing component integration..."
-python3 << EOF
+venv/bin/python3 << EOF
 try:
     from hid import HIDController
-    print("✓ HID module loaded")
-except Exception as e:
-    print(f"✗ HID error: {e}")
-    exit(1)
-
-try:
     from portal import start_background
-    print("✓ Portal module loaded")
-except Exception as e:
-    print(f"✗ Portal error: {e}")
-    exit(1)
-
-try:
     from parser import AuditParser, ReportGenerator
-    print("✓ Parser module loaded")
+    print("✓ All system modules loaded successfully.")
 except Exception as e:
-    print(f"✗ Parser error: {e}")
-    print("Run: sudo apt-get install python3-dev libjpeg-dev zlib1g-dev libfreetype6-dev")
+    print(f"✗ Integration error: {e}")
     exit(1)
-
-print("✓ All components integrated successfully")
 EOF
 
 if [ $? -ne 0 ]; then
-    echo "Component integration failed. Exiting."
+    echo "Component integration failed. Run ./setup.sh to fix dependencies."
     exit 1
 fi
 
-# Start the application
+# 4. Start Application
 echo ""
 echo "Starting Flask application on port 80..."
 echo "Dashboard: http://172.16.0.1 or http://raspberrypi.local"
-echo "Upload server: port 8000 (auto-started)"
-echo "Uploads directory: ./uploads/"
 echo ""
 echo "Press Ctrl+C to stop"
 echo ""
 
+# Run as sudo to allow binding to port 80 and HID access
 sudo venv/bin/python3 app.py

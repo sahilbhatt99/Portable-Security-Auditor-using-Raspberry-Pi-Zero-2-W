@@ -55,6 +55,8 @@ This section describes the files related to project setup, dependency management
 
 ### Key Files:
 
-*   **`run.sh`**: This is the primary startup script for the application. It automates the setup process by creating a Python virtual environment, installing both system-level and Python dependencies, and finally launching the main Flask application with the necessary permissions. It also performs checks to ensure the environment is configured correctly (e.g., verifying that the HID device is present).
+*   **`setup.sh`**: This script handles the initial installation and environment configuration. It installs system dependencies, creates the Python virtual environment, installs Python packages, and prepares the workspace.
 
-*   **`requirements.txt`**: This file lists the Python packages required for the project to run. It primarily includes `Flask` for the web server and `reportlab` for generating PDF reports. The `run.sh` script uses this file to install the correct dependencies.
+*   **`run.sh`**: This script is used for daily execution. It performs health checks (HID device presence, module integrity) and launches the main Flask application using the pre-configured virtual environment.
+
+*   **`requirements.txt`**: This file lists the Python packages required for the project to run.

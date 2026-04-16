@@ -43,10 +43,16 @@ git clone https://github.com/sahilbhatt99/Portable-Security-Auditor-using-Raspbe
 cd Portable-Security-Auditor-using-Raspberry-Pi-Zero-2-W
 ```
 
-### 3. Run Setup Script
+### 3. Setup Environment
 
 ```bash
-chmod +x run.sh
+chmod +x setup.sh run.sh
+sudo ./setup.sh
+```
+
+### 4. Run Application
+
+```bash
 ./run.sh
 ```
 
@@ -117,7 +123,8 @@ Files saved to: `uploads/YYYYMMDD_HHMMSS_scanN_device_owner/`
 ```
 .
 ├── app.py                 # Flask web application
-├── run.sh                 # Startup script
+├── setup.sh               # Installation and environment setup
+├── run.sh                 # Application execution and health checks
 ├── requirements.txt       # Python dependencies
 ├── hid/                   # HID injection system
 │   ├── executor.py        # Low-level HID device I/O
