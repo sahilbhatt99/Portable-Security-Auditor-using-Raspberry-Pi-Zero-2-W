@@ -591,14 +591,20 @@ class ReportGenerator:
             self.story.append(Paragraph(f"Error: {secpol['error']}", self.styles['DangerText']))
             return
             
-        settings = secpol.get('settings', {})
-        if not settings:
+        over_risk = secpol.get('overall_risk', 'UNKNOWN')
+        risk_style = self.styles['DangerText'] if over_risk in ['CRITICAL', 'HIGH'] else self.styles['CorpNormal']
+        self.story.append(Paragraph(f"<b>Overall Policy Risk:</b> {over_risk}", risk_style))
+        self.story.append(Spacer(1, 0.1*inch))
+        
+        categories = secpol.get('categories', [])
+        if not categories:
             return
             
-        for group, items in settings.items():
+        for group in categories:
+            items = group.get('items', [])
             if not items: continue
-            self.story.append(Paragraph(f"Group: {group}", self.styles['CorpHeading2']))
-            data = [['Config Key', 'Value']]
+            self.story.append(Paragraph(f"Category: {group.get('name')}", self.styles['CorpHeading2']))
+            data = [['Setting', 'Value']]
             for it in items:
                 data.append([Paragraph(it['key'], self.styles['CorpNormal']), Paragraph(str(it['value'])[:100], self.styles['CorpNormal'])])
                 

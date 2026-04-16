@@ -456,16 +456,16 @@ class AuditParser:
             return {'error': f'Failed to parse auditpol: {str(e)}'}
 
     def parse_secpol(self, filepath):
-        """Parse secedit .cfg output (UTF-16LE INI)"""
+        """Parse secedit .cfg output (UTF-16LE INI) into a structured category report"""
         try:
             with open(filepath, 'r', encoding='utf-16le', errors='ignore') as f:
                 content = f.read()
                 lines = content.split('\n')
                 
-                vulnerabilities = []
-                settings = {}
+                raw_settings = {}
                 current_section = None
                 
+                # First pass: parse the raw INI
                 for line in lines:
                     line = line.strip()
                     if not line or line.startswith(';'):
@@ -473,24 +473,134 @@ class AuditParser:
                         
                     if line.startswith('[') and line.endswith(']'):
                         current_section = line[1:-1]
-                        settings[current_section] = []
+                        raw_settings[current_section] = {}
                     elif current_section and '=' in line:
                         k, v = line.split('=', 1)
                         k, v = k.strip(), v.strip()
-                        settings[current_section].append({'key': k, 'value': v})
-                        
-                        if current_section == 'System Access':
-                            if k == 'MinimumPasswordAge' and v == '0':
-                                vulnerabilities.append(f"Password Age bypass enabled (Min Age: {v})")
-                            elif k == 'MaximumPasswordAge' and (v == '0' or v == '-1'):
-                                vulnerabilities.append(f"Passwords never expire is allowed globally")
-                            elif k == 'EnableGuestAccount' and v == '1':
-                                vulnerabilities.append(f"Guest account is ENABLED globally")
-                
-                return {
-                    'vulnerabilities': vulnerabilities,
-                    'settings': settings
+                        raw_settings[current_section][k] = v
+
+                # Second pass: normalize and map values
+                categories_map = {
+                    "Password Policy": {},
+                    "Account Lockout": {},
+                    "Auditing": {},
+                    "Privileges": {},
+                    "Network Security": {},
+                    "UAC": {},
+                    "Credential Security": {},
+                    "Other": {}
                 }
+                
+                findings = []
+                
+                # Helpers
+                def normalize_val(val):
+                    if val == '0': return 'Disabled'
+                    if val == '1': return 'Enabled'
+                    if val == '-1': return 'Infinite'
+                    return val
+
+                sys_access = raw_settings.get('System Access', {})
+                priv_rights = raw_settings.get('Privilege Rights', {})
+                reg_vals = raw_settings.get('Registry Values', {})
+                audit_log = raw_settings.get('Event Audit', {})
+
+                # Password Policy & Lockout
+                for k, v in sys_access.items():
+                    norm = normalize_val(v)
+                    if 'Password' in k:
+                        categories_map["Password Policy"][k] = norm
+                    elif 'Lockout' in k:
+                        categories_map["Account Lockout"][k] = norm
+                    else:
+                        categories_map["Other"][k] = norm
+
+                # Auditing
+                for k, v in audit_log.items():
+                    categories_map["Auditing"][k] = normalize_val(v)
+
+                # Privileges
+                for k, v in priv_rights.items():
+                    categories_map["Privileges"][k] = v
+
+                # Registry Values (UAC, Network, etc)
+                for k, v in reg_vals.items():
+                    # Format: type,value. Extract value if it matches.
+                    # Example: 4,0 -> 0. 3,"foo" -> foo.
+                    match = re.match(r'^(\d),"?([^"]*)"?$', v)
+                    if match:
+                        rtype, rval = match.groups()
+                        # If DWORD (type 4) or integer logic
+                        norm = normalize_val(rval)
+                    else:
+                        rval = v
+                        norm = v
+
+                    if 'FilterAdministratorToken' in k or 'EnableLUA' in k or 'ConsentPromptBehaviorAdmin' in k:
+                        categories_map["UAC"][k] = norm
+                    elif 'RequireSecuritySignature' in k or 'EnableSecuritySignature' in k:
+                        categories_map["Network Security"][k] = norm
+                    elif 'RunAsPPL' in k or 'UseLogonCredential' in k:
+                        categories_map["Credential Security"][k] = norm
+                    else:
+                        categories_map["Other"][-1] = norm
+                        # Just to keep it clean, discard verbose keys not actively categorized for the array unless wanted.
+
+                # Risk Rules Application
+                overall_risk = "LOW"
+                
+                # Weak Passwords check
+                complex_pw = categories_map["Password Policy"].get("PasswordComplexity", "Disabled")
+                min_len = int(sys_access.get("MinimumPasswordLength", "0"))
+                if complex_pw == "Disabled" or min_len < 14:
+                    overall_risk = "CRITICAL"
+                    findings.append({
+                        "title": "Weak Password Policy",
+                        "severity": "CRITICAL",
+                        "description": f"Password complexity is {complex_pw} and minimum length is {min_len}.",
+                        "remediation": "Enable password complexity and set minimum length to 14 characters or higher."
+                    })
+
+                # Lack of Auditing
+                audit_keys = categories_map["Auditing"]
+                if audit_keys:
+                    no_audit = [k for k,v in audit_keys.items() if v == 'Disabled' or v == '0']
+                    if len(no_audit) > 0:
+                        if overall_risk != "CRITICAL": overall_risk = "CRITICAL"
+                        findings.append({
+                            "title": "No Auditing Configured",
+                            "severity": "CRITICAL",
+                            "description": "Security auditing is disabled for critical OS events.",
+                            "remediation": "Enable Success/Failure auditing for critical OS events."
+                        })
+
+                # SMB Signing
+                smb_client = None
+                smb_server = None
+                for k,v in categories_map["Network Security"].items():
+                    if 'lanmanworkstation\\parameters\\requiresecuritysignature' in k.lower(): smb_client = v
+                    if 'lanmanserver\\parameters\\requiresecuritysignature' in k.lower(): smb_server = v
+                
+                if smb_client == 'Disabled' or smb_server == 'Disabled':
+                    if overall_risk == "LOW": overall_risk = "HIGH"
+                    findings.append({
+                        "title": "SMB Signing Disabled",
+                        "severity": "HIGH",
+                        "description": "SMB Signing is not strictly required for client or server components.",
+                        "remediation": "Require SMB signing to prevent relay attacks."
+                    })
+
+                # Assemble JSON output layout
+                result = {
+                    "overall_risk": overall_risk,
+                    "summary": f"Categorized {sum(len(v) for v in categories_map.values())} policies.",
+                    "categories": [{"name": cat_name, "items": [{"key": k.split('\\')[-1], "value": v} for k,v in items.items()]} for cat_name, items in categories_map.items() if items],
+                    "findings": findings,
+                    "recommendations": [f["remediation"] for f in findings],
+                    "vulnerabilities": findings # Alias to sync with overarching analyzer
+                }
+                
+                return result
         except Exception as e:
             return {'error': f'Failed to parse secpol: {str(e)}'}
 
