@@ -88,6 +88,8 @@ class AuditParser:
                                         "impact": "Privilege escalation to SYSTEM" if sev == "CRITICAL" else "Local Privilege Escalation (LPE)",
                                         "recommendation": "Add quotes to service ImagePath"
                                     })
+                # Scan for anomalies
+                vulnerabilities.extend(self._scan_for_registry_anomalies(content, filepath))
                 
                 # Extract detailed entries
                 entries = []
@@ -105,6 +107,82 @@ class AuditParser:
                 }
         except Exception as e:
             return {'error': f'Failed to parse registry file: {str(e)}'}
+
+    def _scan_for_registry_anomalies(self, content, filepath):
+        anomalies = []
+        # UAC Remote Restrictions
+        if re.search(r'"LocalAccountTokenFilterPolicy"=dword:00000001', content, re.IGNORECASE):
+            anomalies.append({
+                "title": "UAC Remote Restrictions Disabled",
+                "severity": "HIGH",
+                "description": "LocalAccountTokenFilterPolicy is set to 1, allowing remote administrative access via local accounts.",
+                "evidence": "LocalAccountTokenFilterPolicy = 1",
+                "impact": "Lateral movement and remote code execution with local admin rights.",
+                "recommendation": "Set LocalAccountTokenFilterPolicy to 0 or delete the key."
+            })
+        
+        # LSA Protection
+        if 'Control' in filepath:
+            if not re.search(r'"RunAsPPL"=dword:00000001', content, re.IGNORECASE):
+                anomalies.append({
+                    "title": "LSA Protection Not Enabled",
+                    "severity": "MED",
+                    "description": "RunAsPPL (LSA Protection) is not strictly enforced.",
+                    "evidence": "Missing or disabled RunAsPPL",
+                    "impact": "Increased risk of credential dumping from LSASS memory.",
+                    "recommendation": "Enable LSA Protection by setting RunAsPPL = 1 in Lsa configuration."
+                })
+        
+        # WDigest Authentication
+        if 'Control' in filepath:
+            if re.search(r'"UseLogonCredential"=dword:00000001', content, re.IGNORECASE):
+                anomalies.append({
+                    "title": "WDigest Cleartext Credentials Enabled",
+                    "severity": "HIGH",
+                    "description": "WDigest authentication is configured to store cleartext passwords in memory.",
+                    "evidence": "UseLogonCredential = 1",
+                    "impact": "Cleartext credential dumping",
+                    "recommendation": "Disable WDigest cleartext credentials by setting UseLogonCredential = 0."
+                })
+                
+        # RDP Configuration
+        if 'Control' in filepath:
+            if re.search(r'"fDenyTSConnections"=dword:00000000', content, re.IGNORECASE):
+                anomalies.append({
+                    "title": "Remote Desktop Connections Enabled",
+                    "severity": "MED",
+                    "description": "Terminal Services (RDP) connections are allowed to this machine.",
+                    "evidence": "fDenyTSConnections = 0",
+                    "impact": "Increased attack surface for remote exploitation or brute-force.",
+                    "recommendation": "Disable Remote Desktop (fDenyTSConnections = 1) if not explicitly required."
+                })
+                
+        # AutoRun/AutoPlay
+        if 'Policies' in filepath:
+            if re.search(r'"NoDriveTypeAutoRun"=dword:00000000', content, re.IGNORECASE):
+                anomalies.append({
+                    "title": "AutoRun Protection Disabled",
+                    "severity": "HIGH",
+                    "description": "NoDriveTypeAutoRun is set to 0, allowing AutoRun for all drive types.",
+                    "evidence": "NoDriveTypeAutoRun = 0",
+                    "impact": "Execution of malicious code upon media insertion.",
+                    "recommendation": "Enable AutoRun protection by setting NoDriveTypeAutoRun to 255 (0xFF)."
+                })
+        
+        # IFEO Debugger (Sticky Keys)
+        if re.search(r'\[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\(sethc\.exe|utilman\.exe|osk\.exe)\]\s*"Debugger"=', content, re.IGNORECASE) or re.search(r'\[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\.*\]\s*"Debugger"=', content, re.IGNORECASE):
+            matches = re.findall(r'\[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\([^\]]+)\]\s*"Debugger"=', content, re.IGNORECASE)
+            for match in matches:
+                anomalies.append({
+                    "title": "IFEO Debugger Injection",
+                    "severity": "CRITICAL",
+                    "description": f"Image File Execution Options (IFEO) debugger value set for {match}.",
+                    "evidence": f"Debugger key present in IFEO for {match}",
+                    "impact": "SYSTEM level code execution and persistence.",
+                    "recommendation": "Remove IFEO Debugger keys."
+                })
+            
+        return anomalies
     
     def _classify_registry_key(self, key):
         """Classify registry key type"""
@@ -339,6 +417,125 @@ class AuditParser:
         except:
             return {'error': 'Failed to parse sysinfo.json'}
             
+    def parse_auditpol(self, filepath):
+        """Parse auditpol text output"""
+        try:
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
+                content = f.read()
+                lines = content.split('\n')
+                
+                vulnerabilities = []
+                policies = []
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line or 'System audit policy' in line or 'Category/Subcategory' in line:
+                        continue
+                        
+                    parts = re.split(r'\s{2,}', line)
+                    if len(parts) >= 2:
+                        name = parts[0].strip()
+                        setting = parts[1].strip()
+                        policies.append({'name': name, 'setting': setting})
+                        
+                        if name in ['Process Creation', 'Account Logon', 'Object Access'] and 'No Auditing' in setting:
+                            vulnerabilities.append({
+                                'title': f"Missing Audit Policy: {name}",
+                                'severity': "HIGH",
+                                'description': f"{name} events are not being logged.",
+                                'evidence': f"Setting: {setting}",
+                                'impact': "Defense evasion and missing forensics",
+                                'recommendation': f"Enable Success/Failure logging for {name}"
+                            })
+                
+                return {
+                    'vulnerabilities': vulnerabilities,
+                    'policies': policies
+                }
+        except Exception as e:
+            return {'error': f'Failed to parse auditpol: {str(e)}'}
+
+    def parse_secpol(self, filepath):
+        """Parse secedit .cfg output (UTF-16LE INI)"""
+        try:
+            with open(filepath, 'r', encoding='utf-16le', errors='ignore') as f:
+                content = f.read()
+                lines = content.split('\n')
+                
+                vulnerabilities = []
+                settings = {}
+                current_section = None
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line or line.startswith(';'):
+                        continue
+                        
+                    if line.startswith('[') and line.endswith(']'):
+                        current_section = line[1:-1]
+                        settings[current_section] = []
+                    elif current_section and '=' in line:
+                        k, v = line.split('=', 1)
+                        k, v = k.strip(), v.strip()
+                        settings[current_section].append({'key': k, 'value': v})
+                        
+                        if current_section == 'System Access':
+                            if k == 'MinimumPasswordAge' and v == '0':
+                                vulnerabilities.append(f"Password Age bypass enabled (Min Age: {v})")
+                            elif k == 'MaximumPasswordAge' and (v == '0' or v == '-1'):
+                                vulnerabilities.append(f"Passwords never expire is allowed globally")
+                            elif k == 'EnableGuestAccount' and v == '1':
+                                vulnerabilities.append(f"Guest account is ENABLED globally")
+                
+                return {
+                    'vulnerabilities': vulnerabilities,
+                    'settings': settings
+                }
+        except Exception as e:
+            return {'error': f'Failed to parse secpol: {str(e)}'}
+
+    def parse_net_users(self, filepath):
+        """Parse net user output"""
+        try:
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
+                content = f.read()
+                users = []
+                for line in content.split('\n'):
+                    if 'The command completed' in line or 'User accounts for' in line or '---' in line or not line.strip():
+                        continue
+                    parts = re.split(r'\s{2,}', line.strip())
+                    for p in parts:
+                        cleaned = p.strip()
+                        if cleaned:
+                            users.append(cleaned)
+                
+                return {
+                    'users': users
+                }
+        except Exception as e:
+            return {'error': f'Failed to parse net users: {str(e)}'}
+
+    def parse_gpresult(self, filepath):
+        """Parse raw gpresult output into a single string for display"""
+        try:
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
+                content = f.read()
+                start_idx = content.find('Applied Group Policy Objects')
+                if start_idx != -1:
+                    snippet = content[start_idx:start_idx+1000]
+                    return {'snippet': snippet}
+                return {'snippet': content[:1000]}
+        except Exception as e:
+            return {'error': f'Failed to parse gpresult: {str(e)}'}
+
+    def parse_gp_cache(self, filepath):
+        try:
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
+                data = json.load(f)
+                return {'cache_count': len(data) if isinstance(data, list) else 1, 'data': data}
+        except:
+            return {'error': 'Failed to parse gp cache'}
+            
     def analyze_all(self, base_path='C:\\'):
         """Analyze all audit files"""
         
@@ -360,7 +557,12 @@ class AuditParser:
             'Defender': os.path.join(base_path, 'audit_defender.json'),
             'Drivers': os.path.join(base_path, 'audit_drivers.txt'),
             'Devices': os.path.join(base_path, 'audit_devices.txt'),
-            'SysInfo': os.path.join(base_path, 'audit_sysinfo.json')
+            'SysInfo': os.path.join(base_path, 'audit_sysinfo.json'),
+            'AuditPol': os.path.join(base_path, 'audit_auditpol.txt'),
+            'SecPol': os.path.join(base_path, 'audit_secpol.cfg'),
+            'NetUsers': os.path.join(base_path, 'audit_net_users.txt'),
+            'GPCache': os.path.join(base_path, 'audit_gp_cache.json'),
+            'GPResultComputer': os.path.join(base_path, 'audit_gpresult_computer.txt')
         }
         
         results = {}
@@ -409,6 +611,25 @@ class AuditParser:
             devices = self.parse_devices(files['Devices'])
             results['devices'] = devices
             all_vulnerabilities.extend(devices.get('vulnerabilities', []))
+            
+        if self._file_exists(files['AuditPol']):
+            res = self.parse_auditpol(files['AuditPol'])
+            results['auditpol'] = res
+            all_vulnerabilities.extend(res.get('vulnerabilities', []))
+            
+        if self._file_exists(files['SecPol']):
+            res = self.parse_secpol(files['SecPol'])
+            results['secpol'] = res
+            all_vulnerabilities.extend(res.get('vulnerabilities', []))
+            
+        if self._file_exists(files['NetUsers']):
+            results['net_users'] = self.parse_net_users(files['NetUsers'])
+            
+        if self._file_exists(files['GPCache']):
+            results['gp_cache'] = self.parse_gp_cache(files['GPCache'])
+            
+        if self._file_exists(files['GPResultComputer']):
+            results['gpresult_computer'] = self.parse_gpresult(files['GPResultComputer'])
         
         self.results['summary'] = results
         self.results['findings'] = all_vulnerabilities  # Update findings with the comprehensive array

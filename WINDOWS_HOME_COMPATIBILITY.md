@@ -52,6 +52,11 @@
    - Reason: `reg save` requires elevated privileges and is restricted on Home
    - Alternative: Use `reg export` for specific keys instead
 
+3. **Combined Full Audit PRO**
+   - Status: ❌ Requires Pro/Enterprise
+   - Reason: Uses `secedit`, `auditpol`, and RSOP which are missing/restricted on Home
+   - Payload: `full_audit_pro`
+
 ## Summary
 
 **9 out of 11 commands work on Windows Home (82% compatibility)**
@@ -68,7 +73,8 @@
 | `export_defender` | Export Defender Settings | C:\defender.json |
 | `export_drivers` | Export Driver List | C:\drivers.txt |
 | `export_devices` | Export Device List | C:\devices.txt |
-| `full_audit` | Run All Exports | Multiple files |
+| `full_audit` | Run All Home Exports | Multiple files |
+| `full_audit_pro`| Run All Pro Exports | Multiple files |
 
 ## Usage
 

@@ -45,141 +45,142 @@ class PayloadBuilder:
         
         # System info collector
         self.payloads['sysinfo'] = {
-            'name': 'System Information Collector',
-            'description': 'Collects Windows system information',
+            'name': 'Get System Info',
+            'description': 'Basic details like Hostname, OS version, etc.',
             'commands': self._get_bat_payload_commands('sysinfo.bat')
         }
         
         # Compliance check payload
         self.payloads['compliance'] = {
-            'name': 'Compliance Check',
-            'description': 'Checks security compliance and reports',
+            'name': 'Run Compliance Check',
+            'description': 'Checks if the PC meets basic security standards.',
             'commands': self._get_bat_payload_commands('compliance.bat')
         }
         
         # Simple test payload
         self.payloads['test'] = {
-            'name': 'Test Payload',
-            'description': 'Opens notepad with test message',
+            'name': 'Test Connection',
+            'description': 'Opens notepad to see if the HID injection works.',
             'commands': self._get_bat_payload_commands('test.bat')
         }
         
         # Registry export - Policies (Works on Home)
         self.payloads['export_policies'] = {
-            'name': 'Export Registry Policies',
-            'description': 'Exports HKLM Policies and uploads to Pi',
+            'name': 'Get Computer Policies',
+            'description': 'Downloads machine-level registry policies.',
             'commands': self._get_bat_payload_commands('export_policies.bat')
         }
         
         self.payloads['export_user_policies'] = {
-            'name': 'Export User Policies',
-            'description': 'Exports HKCU Policies and uploads to Pi',
+            'name': 'Get User Policies',
+            'description': 'Downloads user-level registry policies.',
             'commands': self._get_bat_payload_commands('export_user_policies.bat')
         }
         
         # Registry export - Services (Works on Home)
         self.payloads['export_services'] = {
-            'name': 'Export Services Registry',
-            'description': 'Exports Services and uploads to Pi',
+            'name': 'Get Running Services',
+            'description': 'Lists all background services.',
             'commands': self._get_bat_payload_commands('export_services.bat')
         }
         
         # Registry export - Control (Works on Home)
         self.payloads['export_control'] = {
-            'name': 'Export Control Registry',
-            'description': 'Exports Control and uploads to Pi',
+            'name': 'Get System Control Config',
+            'description': 'Downloads control settings from the registry.',
             'commands': self._get_bat_payload_commands('export_control.bat')
         }
         
         # Firewall export (Works on Home)
         self.payloads['export_firewall'] = {
-            'name': 'Export Firewall Config',
-            'description': 'Exports firewall and uploads to Pi',
+            'name': 'Get Firewall Rules',
+            'description': 'Lists all Windows Firewall rules.',
             'commands': self._get_bat_payload_commands('export_firewall.bat')
         }
         
         # Defender settings (Works on Home)
         self.payloads['export_defender'] = {
-            'name': 'Export Defender Settings',
-            'description': 'Exports Defender and uploads to Pi',
+            'name': 'Get Antivirus Settings',
+            'description': 'Downloads Windows Defender configuration.',
             'commands': self._get_bat_payload_commands('export_defender.bat')
         }
         
         # Driver enumeration (Works on Home)
         self.payloads['export_drivers'] = {
-            'name': 'Export Driver List',
-            'description': 'Exports drivers and uploads to Pi',
+            'name': 'Get Installed Drivers',
+            'description': 'Lists all installed drivers.',
             'commands': self._get_bat_payload_commands('export_drivers.bat')
         }
         
         # Device enumeration (Works on Home)
         self.payloads['export_devices'] = {
-            'name': 'Export Device List',
-            'description': 'Exports devices and uploads to Pi',
+            'name': 'Get Connected Devices',
+            'description': 'Lists all attached hardware components.',
             'commands': self._get_bat_payload_commands('export_devices.bat')
         }
         
         # Combined audit (All Home-compatible commands)
         self.payloads['full_audit'] = {
-            'name': 'Full System Audit',
-            'description': 'Runs all Home-compatible exports (Elevated)',
+            'name': 'Quick Audit (Home Edition)',
+            'description': 'Runs a basic scan for Windows Home devices.',
             'commands': self._get_bat_payload_commands('full_audit.bat')
         }
+
+        # Combined audit PRO (All exports including Pro features)
+        self.payloads['full_audit_pro'] = {
+            'name': 'Deep Audit (Pro Edition)',
+            'description': 'Runs a thorough scan for Windows Pro/Enterprise.',
+            'commands': self._get_bat_payload_commands('full_audit_pro.bat')
+        }
         
-        
-        # HKCU registry query - actual enforced user policy state
-        self.payloads['export_registry_hkcu'] = {
-            'name': 'Export HKCU Registry Policies',
-            'description': 'Queries HKCU\\Software\\Policies (actual enforced state)',
-            'commands': self._get_bat_payload_commands('export_registry_hkcu.bat')
+
+
+        # GPResult Computer
+        self.payloads['export_gpresult_computer'] = {
+            'name': 'Get GPResult (Computer)',
+            'description': 'Downloads the applied Group Policy report for the PC.',
+            'commands': self._get_bat_payload_commands('export_gpresult_computer.bat')
         }
 
-        # RSOP Computer via WMI - structured policy objects
-        self.payloads['export_rsop_computer'] = {
-            'name': 'Export RSOP Computer (WMI)',
-            'description': 'Queries RSOP computer namespace via WMI',
-            'commands': self._get_bat_payload_commands('export_rsop_computer.bat')
-        }
-
-        # RSOP User via CIM - modern, faster than WMI
-        self.payloads['export_rsop_user'] = {
-            'name': 'Export RSOP User (CIM)',
-            'description': 'Queries RSOP user namespace via modern CIM',
-            'commands': self._get_bat_payload_commands('export_rsop_user.bat')
+        # GPResult User
+        self.payloads['export_gpresult_user'] = {
+            'name': 'Get GPResult (User)',
+            'description': 'Downloads the applied Group Policy report for the user.',
+            'commands': self._get_bat_payload_commands('export_gpresult_user.bat')
         }
 
         # Secedit - account policies, user rights, security options
         self.payloads['export_secedit'] = {
-            'name': 'Export Security Policy (secedit)',
-            'description': 'Exports account policies, user rights and security options',
+            'name': 'Get Security Rights',
+            'description': 'Checks local policies and user rights.',
             'commands': self._get_bat_payload_commands('export_secedit.bat')
         }
 
         # Auditpol - advanced audit policy categories
         self.payloads['export_auditpol'] = {
-            'name': 'Export Audit Policies (auditpol)',
-            'description': 'Dumps all audit policy categories (logon, privilege usage)',
+            'name': 'Get Audit Logging Config',
+            'description': 'Checks what events Windows is logging.',
             'commands': self._get_bat_payload_commands('export_auditpol.bat')
         }
 
         # Net user - local user accounts and restrictions
         self.payloads['export_net_users'] = {
-            'name': 'Export Local Users (net user)',
-            'description': 'Enumerates local users with logon restrictions and policy info',
+            'name': 'Get Local Users',
+            'description': 'Lists local accounts and password rules.',
             'commands': self._get_bat_payload_commands('export_net_users.bat')
         }
 
         # Group Policy cache - applied GPO GUIDs and cached settings
         self.payloads['export_gp_cache'] = {
-            'name': 'Export Group Policy Cache',
-            'description': 'Lists GP cache (applied GPO GUIDs, cached settings)',
+            'name': 'Get Group Policy Cache',
+            'description': 'Finds leftover Group Policy files.',
             'commands': self._get_bat_payload_commands('export_gp_cache.bat')
         }
 
         # Upload audit files to Pi
         self.payloads['upload_files'] = {
-            'name': 'Upload Audit Files',
-            'description': 'Uploads all audit files to Pi (Elevated)',
+            'name': 'Sync Offline Files',
+            'description': 'Uploads leftover logs if a previous scan failed.',
             'commands': self._get_bat_payload_commands('upload_files.bat')
         }
     

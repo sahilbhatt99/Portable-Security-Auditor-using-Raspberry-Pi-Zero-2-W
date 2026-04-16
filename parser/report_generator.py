@@ -73,6 +73,17 @@ class ReportGenerator:
         if 'hklm_policies' in summary or 'services' in summary:
             self._add_registry_section(summary)
             
+        if 'auditpol' in summary:
+            self._add_auditpol_section(summary['auditpol'])
+        if 'secpol' in summary:
+            self._add_secpol_section(summary['secpol'])
+        if 'net_users' in summary:
+            self._add_accounts_section(summary['net_users'])
+        if 'gp_cache' in summary:
+            self._add_gp_cache_section(summary['gp_cache'])
+        if 'gpresult_computer' in summary:
+            self._add_gpresult_section(summary['gpresult_computer'])
+            
         self.story.append(PageBreak())
         self._add_recommendations(audit_results)
         
@@ -121,9 +132,16 @@ class ReportGenerator:
             self.story.append(Paragraph(summary_text, self.styles['DangerText']))
             
             # Analyze severities for Pie Chart
-            high_count = sum(1 for f in findings if 'disabled' in f.lower() or 'disabling' in f.lower() or 'unquoted' in f.lower() or 'exposed' in f.lower())
+            high_count = 0
+            for f in findings:
+                if isinstance(f, dict):
+                    if f.get('severity', 'HIGH') == 'HIGH' or f.get('severity', 'HIGH') == 'CRITICAL':
+                        high_count += 1
+                elif isinstance(f, str):
+                    if 'disabled' in f.lower() or 'disabling' in f.lower() or 'unquoted' in f.lower() or 'exposed' in f.lower():
+                        high_count += 1
+                        
             med_count = len(findings) - high_count
-            
             self._add_severity_pie_chart(high_count, med_count)
             
         else:
@@ -511,7 +529,7 @@ class ReportGenerator:
     def _add_registry_section(self, summary):
         self.story.append(Paragraph("Registry & Local Services", self.styles['CorpHeading2']))
         
-        ed_text = "The Windows Registry controls core OS operational behavior. Threat actors frequently set policies disabling tools like Task Manager or RegEdit to prevent defenders from killing rogue processes. Furthermore, 'Unquoted Service Paths' are a classic Local Privilege Escalation (LPE) vector where an attacker tricks higher privileged services (SYSTEM) into executing maliciously placed dropped payloads upon reboot."
+        ed_text = "The Windows Registry controls core OS operational behavior. We have performed an automated anomaly scan explicitly looking for UAC Bypasses, disabled LSA Protection, RDP exposure, WDigest memory storage, and IFEO backdoor injections. Any identified anomalies are cataloged securely in the Executive Findings report."
         self.story.append(Paragraph(ed_text, self.styles['CorpEducational']))
         
         data = [['Hive/Category', 'Key Count']]
@@ -536,26 +554,119 @@ class ReportGenerator:
         # Registry tables have been dropped per request; 
         # scanning occurs in the background and anomalies are logged to Findings.
 
+    def _add_auditpol_section(self, auditpol):
+        self.story.append(Paragraph("Advanced Audit Policies (AuditPol)", self.styles['CorpHeading2']))
+        if 'error' in auditpol:
+            self.story.append(Paragraph(f"Error: {auditpol['error']}", self.styles['DangerText']))
+            return
+            
+        policies = auditpol.get('policies', [])
+        if not policies:
+            return
+            
+        data = [['Policy Category', 'Setting']]
+        for p in policies:
+            name = p.get('name', '')
+            setting = p.get('setting', '')
+            if setting == 'No Auditing':
+                val = Paragraph(setting, self.styles['WarningText'])
+            else:
+                val = Paragraph(setting, self.styles['CorpNormal'])
+            data.append([Paragraph(name, self.styles['CorpNormal']), val])
+            
+        table = Table(data, colWidths=[3.5*inch, 1.5*inch], repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        self.story.append(table)
+        self.story.append(Spacer(1, 0.3*inch))
+
+    def _add_secpol_section(self, secpol):
+        self.story.append(Paragraph("Local Security Policy (SecEdit)", self.styles['CorpHeading2']))
+        if 'error' in secpol:
+            self.story.append(Paragraph(f"Error: {secpol['error']}", self.styles['DangerText']))
+            return
+            
+        settings = secpol.get('settings', {})
+        if not settings:
+            return
+            
+        for group, items in settings.items():
+            if not items: continue
+            self.story.append(Paragraph(f"Group: {group}", self.styles['CorpHeading2']))
+            data = [['Config Key', 'Value']]
+            for it in items:
+                data.append([Paragraph(it['key'], self.styles['CorpNormal']), Paragraph(str(it['value'])[:100], self.styles['CorpNormal'])])
+                
+            table = Table(data, colWidths=[3*inch, 2*inch], repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e6e6e6')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(table)
+            self.story.append(Spacer(1, 0.2*inch))
+
+    def _add_accounts_section(self, net_users):
+        self.story.append(Paragraph("Local Accounts", self.styles['CorpHeading2']))
+        if 'error' in net_users:
+            self.story.append(Paragraph(f"Error: {net_users['error']}", self.styles['DangerText']))
+            return
+            
+        users = net_users.get('users', [])
+        self.story.append(Paragraph(", ".join(users), self.styles['CorpNormal']))
+        self.story.append(Spacer(1, 0.3*inch))
+        
+    def _add_gp_cache_section(self, gp_cache):
+        self.story.append(Paragraph("Group Policy Cache", self.styles['CorpHeading2']))
+        if 'error' in gp_cache:
+            self.story.append(Paragraph(f"Note: {gp_cache['error']}", self.styles['CorpNormal']))
+            self.story.append(Spacer(1, 0.3*inch))
+            return
+            
+        count = gp_cache.get('cache_count', 0)
+        self.story.append(Paragraph(f"Found <b>{count}</b> cached Group Policy objects residing locally on disk.", self.styles['CorpNormal']))
+        self.story.append(Spacer(1, 0.3*inch))
+
+    def _add_gpresult_section(self, gpresult):
+        self.story.append(Paragraph("Group Policy Objects", self.styles['CorpHeading2']))
+        if 'error' in gpresult:
+            self.story.append(Paragraph(f"Error: {gpresult['error']}", self.styles['DangerText']))
+            return
+            
+        snippet = gpresult.get('snippet', '')
+        self.story.append(Paragraph(snippet.replace('\n', '<br/>'), self.styles['CorpNormal']))
+        self.story.append(Spacer(1, 0.3*inch))
+
     def _add_recommendations(self, audit_results):
         self.story.append(Paragraph("ACTIONABLE RECOMMENDATIONS", self.styles['CorpHeading1']))
         recommendations = []
         findings = audit_results.get('findings', [])
         
         for finding in findings:
-            if 'Real-time protection' in finding:
+            finding_text = finding.get('title', '') + " " + finding.get('description', '') if isinstance(finding, dict) else finding
+            
+            if 'Real-time protection' in finding_text:
                 recommendations.append("Immediately enable Windows Defender Real-time Protection to defend against runtime execution.")
-            elif 'Anti-spyware' in finding:
+            elif 'Anti-spyware' in finding_text:
                 recommendations.append("Enable Windows Defender Anti-spyware module.")
-            elif 'Unsigned driver' in finding:
+            elif 'Unsigned driver' in finding_text:
                 recommendations.append("Review unsigned drivers identified; sandbox them or replace with strictly digitally verified equivalents.")
-            elif 'Problematic device' in finding:
+            elif 'Problematic device' in finding_text:
                 recommendations.append("Investigate hardware component errors via Device Manager GUI mapping.")
-            elif 'Unquoted Service Path' in finding:
+            elif 'Unquoted Service Path' in finding_text:
                 recommendations.append("Patch vulnerable unquoted service paths by modifying the registry ImagePath string to encapsulate the absolute path in double-quotes.")
-            elif 'policy' in finding.lower() and 'disabled' in finding.lower():
+            elif 'policy' in finding_text.lower() and 'disabled' in finding_text.lower():
                 recommendations.append("Re-enable critical administrative tools (Task Manager/RegEdit/CMD).")
-            elif 'Exposed Firewall Rule' in finding:
+            elif 'Exposed Firewall Rule' in finding_text:
                 recommendations.append("Close unnecessary public inbound firewall profile ports (ex. 3389, 445, 5985).")
+            elif 'Missing Audit Policy' in finding_text:
+                recommendations.append("Enable Success/Failure tracking for critical system Audit Policies to ensure forensics visibility.")
         
         if not recommendations:
             recommendations.append("Continue monitoring system security settings regularly.")

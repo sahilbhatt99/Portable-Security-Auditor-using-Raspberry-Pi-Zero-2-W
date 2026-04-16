@@ -139,23 +139,22 @@
             });
         }
 
-        // Payloads that require Pro/Enterprise (incompatible with Home)
         const PRO_ONLY = new Set([
             'export_secedit',
-            'export_rsop_computer',
-            'export_rsop_user',
-            'export_gp_cache'
+            'export_gpresult_computer',
+            'export_gpresult_user',
+            'export_gp_cache',
+            'full_audit_pro'
         ]);
 
-        // Category groupings for the radio list
         const GROUPS = [
             { title: '🔧 Utility',              keys: ['test', 'sysinfo', 'compliance'] },
-            { title: '📋 Registry Exports',      keys: ['export_policies', 'export_user_policies', 'export_registry_hkcu', 'export_services', 'export_control'] },
+            { title: '📋 Registry Exports',      keys: ['export_policies', 'export_user_policies', 'export_services', 'export_control'] },
             { title: '🔒 Security Config',       keys: ['export_firewall', 'export_defender', 'export_secedit', 'export_auditpol'] },
             { title: '🖥️ Hardware',              keys: ['export_drivers', 'export_devices'] },
-            { title: '📊 RSOP / Group Policy',   keys: ['export_rsop_computer', 'export_rsop_user', 'export_gp_cache'] },
+            { title: '📊 RSOP / Group Policy',   keys: ['export_gpresult_computer', 'export_gpresult_user', 'export_gp_cache'] },
             { title: '👤 User Accounts',         keys: ['export_net_users'] },
-            { title: '🚀 Combined',              keys: ['full_audit', 'upload_files'] },
+            { title: '🚀 Combined',              keys: ['full_audit', 'full_audit_pro', 'upload_files'] },
         ];
 
         let ALL_PAYLOADS = {};
