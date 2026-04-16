@@ -543,7 +543,7 @@ class AuditParser:
                     elif 'RunAsPPL' in k or 'UseLogonCredential' in k:
                         categories_map["Credential Security"][k] = norm
                     else:
-                        categories_map["Other"][-1] = norm
+                        categories_map["Other"][k] = norm
                         # Just to keep it clean, discard verbose keys not actively categorized for the array unless wanted.
 
                 # Risk Rules Application
@@ -590,11 +590,10 @@ class AuditParser:
                         "remediation": "Require SMB signing to prevent relay attacks."
                     })
 
-                # Assemble JSON output layout
                 result = {
                     "overall_risk": overall_risk,
                     "summary": f"Categorized {sum(len(v) for v in categories_map.values())} policies.",
-                    "categories": [{"name": cat_name, "items": [{"key": k.split('\\')[-1], "value": v} for k,v in items.items()]} for cat_name, items in categories_map.items() if items],
+                    "categories": [{"name": cat_name, "items": [{"key": str(k).split('\\')[-1], "value": str(v)} for k,v in items.items()]} for cat_name, items in categories_map.items() if items],
                     "findings": findings,
                     "recommendations": [f["remediation"] for f in findings],
                     "vulnerabilities": findings # Alias to sync with overarching analyzer

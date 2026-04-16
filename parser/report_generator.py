@@ -62,6 +62,25 @@ class ReportGenerator:
         self.story.append(Paragraph("DETAILED COMPONENT ANALYSIS", self.styles['CorpHeading1']))
         
         summary = audit_results.get('summary', {})
+        
+        # Primary device info
+        if 'net_users' in summary:
+            self._add_accounts_section(summary['net_users'])
+            
+        # Registry and policies (above firewall/defender per request)
+        if 'hklm_policies' in summary or 'services' in summary:
+            self._add_registry_section(summary)
+            
+        if 'auditpol' in summary:
+            self._add_auditpol_section(summary['auditpol'])
+        if 'secpol' in summary:
+            self._add_secpol_section(summary['secpol'])
+        if 'gp_cache' in summary:
+            self._add_gp_cache_section(summary['gp_cache'])
+        if 'gpresult_computer' in summary:
+            self._add_gpresult_section(summary['gpresult_computer'])
+            
+        # Other elements
         if 'defender' in summary:
             self._add_defender_section(summary['defender'])
         if 'drivers' in summary:
@@ -70,22 +89,6 @@ class ReportGenerator:
             self._add_devices_section(summary['devices'])
         if 'firewall' in summary:
             self._add_firewall_section(summary['firewall'])
-        if 'hklm_policies' in summary or 'services' in summary:
-            self._add_registry_section(summary)
-            
-        if 'auditpol' in summary:
-            self._add_auditpol_section(summary['auditpol'])
-        if 'secpol' in summary:
-            self._add_secpol_section(summary['secpol'])
-        if 'net_users' in summary:
-            self._add_accounts_section(summary['net_users'])
-        if 'gp_cache' in summary:
-            self._add_gp_cache_section(summary['gp_cache'])
-        if 'gpresult_computer' in summary:
-            self._add_gpresult_section(summary['gpresult_computer'])
-            
-        self.story.append(PageBreak())
-        self._add_recommendations(audit_results)
         
         # Build PDF
         self.doc.build(self.story)
