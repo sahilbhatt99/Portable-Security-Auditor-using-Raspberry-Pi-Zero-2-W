@@ -63,26 +63,29 @@ class ReportGenerator:
         
         summary = audit_results.get('summary', {})
         
-        # Primary device info
+        # 1. Primary User & Access Configuration
         if 'net_users' in summary:
             self._add_accounts_section(summary['net_users'])
             
-        # Registry and policies (above firewall/defender per request)
+        # 2. Security Configuration & Enterprise Policy
         if 'hklm_policies' in summary or 'services' in summary:
             self._add_registry_section(summary)
             
         if 'auditpol' in summary:
             self._add_auditpol_section(summary['auditpol'])
-        if 'secpol' in summary:
-            self._add_secpol_section(summary['secpol'])
+            
+        # Unified Security Policy & Context
+        if any(k in summary for k in ['secpol', 'gpresult_user', 'gpresult_computer']):
+            self._add_unified_security_context(summary)
+            
         if 'gp_cache' in summary:
             self._add_gp_cache_section(summary['gp_cache'])
-        if 'gpresult_computer' in summary:
-            self._add_gpresult_section(summary['gpresult_computer'])
             
-        # Other elements
+        # 3. Security Software Status
         if 'defender' in summary:
             self._add_defender_section(summary['defender'])
+            
+        # 4. Large Data Inventory Dumps (At the bottom)
         if 'drivers' in summary:
             self._add_drivers_section(summary['drivers'])
         if 'devices' in summary:
@@ -377,6 +380,8 @@ class ReportGenerator:
             self.story.append(Paragraph("Full Driver Inventory", self.styles['CorpHeading2']))
             driver_data = [['Name', 'Provider', 'Signed']]
             for d in detailed:
+                if any(str(v).upper() == 'N/A' for v in d.values()):
+                    continue
                 driver_data.append([
                     Paragraph(d.get('published_name', ''), self.styles['CorpNormal']),
                     Paragraph(d.get('provider', ''), self.styles['CorpNormal']),
@@ -449,6 +454,8 @@ class ReportGenerator:
             self.story.append(Paragraph("Full Device Inventory", self.styles['CorpHeading2']))
             device_data = [['Description', 'Instance ID', 'Status', 'Problem']]
             for d in detailed:
+                if any(str(v).upper() == 'N/A' for v in d.values()):
+                    continue
                 device_data.append([
                     Paragraph(d.get('description', ''), self.styles['CorpNormal']),
                     Paragraph(d.get('instance_id', ''), self.styles['CorpNormal']),
@@ -476,40 +483,14 @@ class ReportGenerator:
             self.story.append(Paragraph(f"Error: {firewall['error']}", self.styles['DangerText']))
             return
         
-        self.story.append(Paragraph(f"Parsed <b>{firewall.get('active_rules', 0)}</b> active inbound firewall rules.", self.styles['CorpNormal']))
-        self.story.append(Spacer(1, 0.2*inch))
-        
         all_rules = firewall.get('all_rules', [])
         if all_rules:
             self.story.append(Spacer(1, 0.2*inch))
             self.story.append(Paragraph("All Firewall Rules", self.styles['CorpHeading2']))
             fw_data = [['Name', 'Action', 'Direction', 'Port', 'Severity']]
             for r in all_rules:
-                sev_c = self.styles['DangerText'] if r.get('severity') == 'HIGH' else self.styles['CorpNormal']
-                fw_data.append([
-                    Paragraph(r.get('name', ''), self.styles['CorpNormal']),
-                    Paragraph(r.get('action', ''), self.styles['CorpNormal']),
-                    Paragraph(r.get('direction', ''), self.styles['CorpNormal']),
-                    Paragraph(r.get('localport', ''), self.styles['CorpNormal']),
-                    Paragraph(r.get('severity', ''), sev_c)
-                ])
-            fw_table = Table(fw_data, colWidths=[2.5*inch, 0.8*inch, 0.8*inch, 1.4*inch, 1*inch], repeatRows=1)
-            fw_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            self.story.append(fw_table)
-            self.story.append(Spacer(1, 0.3*inch))
-        
-        all_rules = firewall.get('all_rules', [])
-        if all_rules:
-            self.story.append(Spacer(1, 0.2*inch))
-            self.story.append(Paragraph("All Firewall Rules", self.styles['CorpHeading2']))
-            fw_data = [['Name', 'Action', 'Direction', 'Port', 'Severity']]
-            for r in all_rules:
+                if any(str(v).upper() == 'N/A' for v in r.values()):
+                    continue
                 sev_c = self.styles['DangerText'] if r.get('severity') == 'HIGH' else self.styles['CorpNormal']
                 fw_data.append([
                     Paragraph(r.get('name', ''), self.styles['CorpNormal']),
@@ -571,6 +552,8 @@ class ReportGenerator:
         for p in policies:
             name = p.get('name', '')
             setting = p.get('setting', '')
+            if name.upper() == 'N/A' or setting.upper() == 'N/A':
+                continue
             if setting == 'No Auditing':
                 val = Paragraph(setting, self.styles['WarningText'])
             else:
@@ -587,39 +570,6 @@ class ReportGenerator:
         ]))
         self.story.append(table)
         self.story.append(Spacer(1, 0.3*inch))
-
-    def _add_secpol_section(self, secpol):
-        self.story.append(Paragraph("Local Security Policy (SecEdit)", self.styles['CorpHeading2']))
-        if 'error' in secpol:
-            self.story.append(Paragraph(f"Error: {secpol['error']}", self.styles['DangerText']))
-            return
-            
-        over_risk = secpol.get('overall_risk', 'UNKNOWN')
-        risk_style = self.styles['DangerText'] if over_risk in ['CRITICAL', 'HIGH'] else self.styles['CorpNormal']
-        self.story.append(Paragraph(f"<b>Overall Policy Risk:</b> {over_risk}", risk_style))
-        self.story.append(Spacer(1, 0.1*inch))
-        
-        categories = secpol.get('categories', [])
-        if not categories:
-            return
-            
-        for group in categories:
-            items = group.get('items', [])
-            if not items: continue
-            self.story.append(Paragraph(f"Category: {group.get('name')}", self.styles['CorpHeading2']))
-            data = [['Setting', 'Value']]
-            for it in items:
-                data.append([Paragraph(it['key'], self.styles['CorpNormal']), Paragraph(str(it['value'])[:100], self.styles['CorpNormal'])])
-                
-            table = Table(data, colWidths=[3*inch, 2*inch], repeatRows=1)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e6e6e6')),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            self.story.append(table)
-            self.story.append(Spacer(1, 0.2*inch))
 
     def _add_accounts_section(self, net_users):
         self.story.append(Paragraph("Local Accounts", self.styles['CorpHeading2']))
@@ -642,14 +592,137 @@ class ReportGenerator:
         self.story.append(Paragraph(f"Found <b>{count}</b> cached Group Policy objects residing locally on disk.", self.styles['CorpNormal']))
         self.story.append(Spacer(1, 0.3*inch))
 
-    def _add_gpresult_section(self, gpresult):
-        self.story.append(Paragraph("Group Policy Objects", self.styles['CorpHeading2']))
-        if 'error' in gpresult:
-            self.story.append(Paragraph(f"Error: {gpresult['error']}", self.styles['DangerText']))
-            return
+    def _add_unified_security_context(self, summary):
+        self.story.append(Paragraph("Unified Security Policy & Context Analysis", self.styles['CorpHeading2']))
+        
+        # Aggregate Risk
+        secpol = summary.get('secpol', {})
+        gpu = summary.get('gpresult_user', {})
+        gpc = summary.get('gpresult_computer', {})
+        
+        risks = [secpol.get('overall_risk', 'LOW'), gpu.get('risk', 'LOW'), gpc.get('risk', 'LOW')]
+        agg_risk = 'LOW'
+        if 'CRITICAL' in risks:
+            agg_risk = 'CRITICAL'
+        elif 'HIGH' in risks:
+            agg_risk = 'HIGH'
             
-        snippet = gpresult.get('snippet', '')
-        self.story.append(Paragraph(snippet.replace('\n', '<br/>'), self.styles['CorpNormal']))
+        risk_style = self.styles['DangerText'] if agg_risk in ['CRITICAL', 'HIGH'] else self.styles['CorpNormal']
+        self.story.append(Paragraph(f"<b>Aggregate Baseline Risk:</b> {agg_risk}", risk_style))
+        self.story.append(Spacer(1, 0.1*inch))
+        
+        # Display Combined Context (User & Privileges)
+        for scope_name, gp_data in [('User Context', gpu), ('Computer Context', gpc)]:
+            if not gp_data: continue
+            
+            user_info = gp_data.get('user_info', {})
+            if user_info:
+                info_str = f"<b>{scope_name}:</b> {user_info.get('username', 'N/A')} | <b>Profile:</b> {user_info.get('profile_path', 'N/A')} | <b>OS:</b> {user_info.get('os_version', 'N/A')}"
+                self.story.append(Paragraph(info_str, self.styles['CorpNormal']))
+                self.story.append(Spacer(1, 0.1*inch))
+            
+            groups = gp_data.get('groups', [])
+            if groups:
+                self.story.append(Paragraph("<b>Security Groups:</b>", self.styles['CorpNormal']))
+                group_list = ", ".join(groups)
+                self.story.append(Paragraph(group_list, self.styles['CorpNormal']))
+                self.story.append(Spacer(1, 0.1*inch))
+                
+            privileges = gp_data.get('privileges', [])
+            if privileges:
+                self.story.append(Paragraph("<b>Assigned Privileges:</b>", self.styles['CorpNormal']))
+                for p in privileges:
+                    style = self.styles['DangerText'] if p in ["SeDebugPrivilege", "SeImpersonatePrivilege", "SeBackupPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege"] else self.styles['CorpNormal']
+                    self.story.append(Paragraph(f"• {p}", style))
+                self.story.append(Spacer(1, 0.2*inch))
+                
+            findings = gp_data.get('findings', [])
+            if findings:
+                self.story.append(Paragraph(f"<b>{scope_name} Findings:</b>", self.styles['CorpNormal']))
+                for f in findings:
+                    self.story.append(Paragraph(f"• {f}", self.styles['DangerText'] if "CRITICAL" in f or "HIGH" in f else self.styles['CorpNormal']))
+                self.story.append(Spacer(1, 0.2*inch))
+        
+        # Display Combined Applied GPOs
+        combined_gpos = []
+        if gpu and gpu.get('gpos'): combined_gpos.extend(gpu['gpos'])
+        if gpc and gpc.get('gpos'): combined_gpos.extend(gpc['gpos'])
+
+        if combined_gpos:
+            self.story.append(Paragraph(f"<b>Applied Group Policy Objects ({len(combined_gpos)} total)</b>", self.styles['CorpHeading2']))
+            data = [['#', 'GPO Name', 'Scope', 'Status']]
+            for row in combined_gpos:
+                status = str(row.get('status', ''))
+                name = str(row.get('name', ''))
+                if status.upper() == 'N/A' or name.upper() == 'N/A':
+                    continue
+                status_style = self.styles['DangerText'] if 'Not Applied' in status else self.styles['CorpNormal']
+                data.append([
+                    Paragraph(str(row.get('order', '-')), self.styles['CorpNormal']),
+                    Paragraph(name, self.styles['CorpNormal']),
+                    Paragraph(str(row.get('scope', '')), self.styles['CorpNormal']),
+                    Paragraph(status, status_style),
+                ])
+                
+            gpo_table = Table(data, colWidths=[0.4*inch, 3.1*inch, 1*inch, 2*inch], repeatRows=1)
+            gpo_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(gpo_table)
+            self.story.append(Spacer(1, 0.3*inch))
+        else:
+            self.story.append(Paragraph("No Active GPOs Detected. Dumping explicit Local Security Policy configurations.", self.styles['CorpEducational']))
+            self.story.append(Spacer(1, 0.2*inch))
+            
+            # Print SecPol details only in the absence of GPOs
+            categories = secpol.get('categories', [])
+            if categories:
+                for group in categories:
+                    items = group.get('items', [])
+                    if not items: continue
+                    
+                    cat_name = group.get('name', 'Unknown category')
+                    cat_risk = group.get('risk', 'LOW')
+                    
+                    # Print Category header with Risk
+                    self.story.append(Paragraph(f"Local Policy: {cat_name} (Risk: {cat_risk})", self.styles['CorpHeading2']))
+                    
+                    # Print Findings & Recommendations
+                    findings = group.get('findings', [])
+                    recs = group.get('recommendations', [])
+                    if findings:
+                        self.story.append(Paragraph("<b>Findings:</b>", self.styles['CorpNormal']))
+                        for f in findings:
+                            self.story.append(Paragraph(f"• {f}", self.styles['DangerText']))
+                        self.story.append(Spacer(1, 0.05*inch))
+                    
+                    if recs:
+                        self.story.append(Paragraph("<b>Recommendations:</b>", self.styles['CorpNormal']))
+                        for r in recs:
+                            self.story.append(Paragraph(f"• {r}", self.styles['CorpEducational']))
+                        self.story.append(Spacer(1, 0.1*inch))
+                        
+                    # Print raw table
+                    data = [['Setting', 'Value']]
+                    for it in items:
+                        if str(it.get('key', '')).upper() == 'N/A' or str(it.get('value', '')).upper() == 'N/A':
+                            continue
+                        data.append([Paragraph(it['key'], self.styles['CorpNormal']), Paragraph(str(it['value'])[:100], self.styles['CorpNormal'])])
+                        
+                    table = Table(data, colWidths=[3*inch, 2*inch], repeatRows=1)
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e6e6e6')),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ]))
+                    self.story.append(table)
+                    self.story.append(Spacer(1, 0.2*inch))
+        
         self.story.append(Spacer(1, 0.3*inch))
 
     def _add_recommendations(self, audit_results):

@@ -26,6 +26,14 @@ EXPECTED_FILES = {
         'audit_auditpol.txt', 'audit_gp_cache.json', 'audit_net_users.txt',
         'audit_secpol.cfg', 'audit_gpresult_computer.txt', 'audit_gpresult_user.txt'
     },
+    'Home_Audit': {
+        'audit_sysinfo.json', 'audit_hklm_policies.txt', 'audit_hkcu_policies.txt',
+        'audit_services.txt', 'audit_control.txt', 'audit_firewall.txt',
+        'audit_defender.json', 'audit_drivers.txt', 'audit_devices.txt',
+        'audit_auditpol.txt', 'audit_gp_cache.json', 'audit_net_users.txt',
+        'audit_gpresult_computer.txt', 'audit_gpresult_user.txt'
+        # secedit excluded — not available on Home edition
+    },
     'Basic_Audit': {
         'audit_sysinfo.json', 'audit_firewall.txt', 'audit_defender.json'
     }

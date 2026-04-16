@@ -476,127 +476,200 @@ class AuditParser:
                         raw_settings[current_section] = {}
                     elif current_section and '=' in line:
                         k, v = line.split('=', 1)
-                        k, v = k.strip(), v.strip()
-                        raw_settings[current_section][k] = v
+                        raw_settings[current_section][k.strip()] = v.strip()
 
-                # Second pass: normalize and map values
-                categories_map = {
-                    "Password Policy": {},
-                    "Account Lockout": {},
-                    "Auditing": {},
-                    "Privileges": {},
-                    "Network Security": {},
-                    "UAC": {},
-                    "Credential Security": {},
-                    "Other": {}
-                }
-                
-                findings = []
-                
-                # Helpers
-                def normalize_val(val):
-                    if val == '0': return 'Disabled'
-                    if val == '1': return 'Enabled'
-                    if val == '-1': return 'Infinite'
-                    return val
-
-                sys_access = raw_settings.get('System Access', {})
-                priv_rights = raw_settings.get('Privilege Rights', {})
-                reg_vals = raw_settings.get('Registry Values', {})
-                audit_log = raw_settings.get('Event Audit', {})
-
-                # Password Policy & Lockout
-                for k, v in sys_access.items():
-                    norm = normalize_val(v)
-                    if 'Password' in k:
-                        categories_map["Password Policy"][k] = norm
-                    elif 'Lockout' in k:
-                        categories_map["Account Lockout"][k] = norm
-                    else:
-                        categories_map["Other"][k] = norm
-
-                # Auditing
-                for k, v in audit_log.items():
-                    categories_map["Auditing"][k] = normalize_val(v)
-
-                # Privileges
-                for k, v in priv_rights.items():
-                    categories_map["Privileges"][k] = v
-
-                # Registry Values (UAC, Network, etc)
-                for k, v in reg_vals.items():
-                    # Format: type,value. Extract value if it matches.
-                    # Example: 4,0 -> 0. 3,"foo" -> foo.
+                def normalize_val(v):
                     match = re.match(r'^(\d),"?([^"]*)"?$', v)
                     if match:
-                        rtype, rval = match.groups()
-                        # If DWORD (type 4) or integer logic
-                        norm = normalize_val(rval)
-                    else:
-                        rval = v
-                        norm = v
+                        _, rval = match.groups()
+                        return rval
+                    return v
 
-                    if 'FilterAdministratorToken' in k or 'EnableLUA' in k or 'ConsentPromptBehaviorAdmin' in k:
-                        categories_map["UAC"][k] = norm
-                    elif 'RequireSecuritySignature' in k or 'EnableSecuritySignature' in k:
-                        categories_map["Network Security"][k] = norm
-                    elif 'RunAsPPL' in k or 'UseLogonCredential' in k:
-                        categories_map["Credential Security"][k] = norm
-                    else:
-                        categories_map["Other"][k] = norm
-                        # Just to keep it clean, discard verbose keys not actively categorized for the array unless wanted.
+                global_findings = []
+                categories = []
+                system_access = raw_settings.get('System Access', {})
+                audit_log = raw_settings.get('Event Audit', {})
+                reg_vals = raw_settings.get('Registry Values', {})
+                priv_rights = raw_settings.get('Privilege Rights', {})
 
-                # Risk Rules Application
+                # --- 1. Password Policy ---
+                pw_items = []
+                pw_findings = []
+                pw_recs = []
+                pw_risk = "LOW"
+                
+                min_len = int(system_access.get("MinimumPasswordLength", "0"))
+                complexity = system_access.get("PasswordComplexity", "0")
+                max_age = int(system_access.get("MaximumPasswordAge", "42"))
+                
+                pw_items.append({"key": "MinimumPasswordLength", "value": str(min_len)})
+                pw_items.append({"key": "PasswordComplexity", "value": "Enabled" if complexity == "1" else "Disabled"})
+                pw_items.append({"key": "MaximumPasswordAge", "value": str(max_age)})
+
+                if min_len == 0 or min_len < 8:
+                    pw_risk = "CRITICAL"
+                    pw_findings.append(f"Minimum password length is {min_len}")
+                    pw_recs.append("Set minimum password length to at least 8 (ideally 14+)")
+                if complexity == "0":
+                    pw_risk = "CRITICAL"
+                    pw_findings.append("Password complexity is disabled")
+                    pw_recs.append("Enable password complexity")
+                if max_age == -1:
+                    if pw_risk != "CRITICAL": pw_risk = "HIGH"
+                    pw_findings.append("Passwords never expire")
+                    pw_recs.append("Set password expiration policy (e.g. 60 or 90 days)")
+                    
+                categories.append({
+                    "name": "Password Policy",
+                    "risk": pw_risk,
+                    "findings": pw_findings,
+                    "recommendations": pw_recs,
+                    "items": pw_items
+                })
+                for f in pw_findings: global_findings.append({"title": "Weak Password Policy", "severity": pw_risk, "description": f})
+
+                # --- 2. Audit Policy ---
+                audit_items = []
+                audit_findings = []
+                audit_recs = []
+                audit_risk = "LOW"
+                all_disabled = True
+                
+                for k, v in audit_log.items():
+                    norm_v = 'Disabled' if v == '0' else 'Enabled'
+                    audit_items.append({"key": k, "value": norm_v})
+                    if v != '0':
+                        all_disabled = False
+                        
+                if all_disabled and audit_items:
+                    audit_risk = "CRITICAL"
+                    audit_findings.append("All audit policies are disabled")
+                    audit_recs.append("Enable audit logging for system, logon, and privilege events")
+                    global_findings.append({"title": "No Auditing Configured", "severity": "CRITICAL", "description": "All system event audit policies are disabled."})
+
+                categories.append({
+                    "name": "Audit Policy",
+                    "risk": audit_risk,
+                    "findings": audit_findings,
+                    "recommendations": audit_recs,
+                    "items": audit_items
+                })
+
+                # --- 3. Network Security ---
+                net_items = []
+                net_findings = []
+                net_recs = []
+                net_risk = "LOW"
+                
+                smb_req = None
+                smb_en = None
+                anon_restrict = None
+                
+                for k, v in reg_vals.items():
+                    norm = normalize_val(v)
+                    lowk = k.lower()
+                    if 'requiresecuritysignature' in lowk:
+                        smb_req = norm
+                        net_items.append({"key": "RequireSecuritySignature", "value":  "Disabled" if norm=="0" else "Enabled"})
+                    elif 'enablesecuritysignature' in lowk:
+                        smb_en = norm
+                        net_items.append({"key": "EnableSecuritySignature", "value": "Disabled" if norm=="0" else "Enabled"})
+                    elif 'restrictanonymous' in lowk and 'sam' not in lowk:
+                        anon_restrict = norm
+                        net_items.append({"key": "RestrictAnonymous", "value": norm})
+                        
+                if smb_req == "0" or smb_en == "0":
+                    net_risk = "HIGH"
+                    net_findings.append("SMB signing not enforced")
+                    net_recs.append("Enable SMB signing to prevent relay attacks")
+                if anon_restrict == "0":
+                    if net_risk == "LOW": net_risk = "HIGH"
+                    net_findings.append("Anonymous access allowed")
+                    net_recs.append("Restrict anonymous access to named pipes and shares")
+                    
+                categories.append({
+                    "name": "Network Security",
+                    "risk": net_risk,
+                    "findings": net_findings,
+                    "recommendations": net_recs,
+                    "items": net_items
+                })
+                for f in net_findings: global_findings.append({"title": "Network Security Risk", "severity": net_risk, "description": f})
+
+                # --- 4. Credential Security ---
+                cred_items = []
+                cred_findings = []
+                cred_recs = []
+                cred_risk = "LOW"
+                
+                for k, v in reg_vals.items():
+                    norm = normalize_val(v)
+                    lowk = k.lower()
+                    if 'cachedlogonscount' in lowk:
+                        cred_items.append({"key": "CachedLogonsCount", "value": norm})
+                        if int(norm) > 0:
+                            cred_risk = "MEDIUM"
+                            cred_findings.append("Cached credentials present and allowed")
+                            cred_recs.append("Disable cached logons if not actively required for offline domain access")
+                    if 'nolmhash' in lowk:
+                        cred_items.append({"key": "NoLMHash", "value": "Enabled" if norm=="1" else "Disabled"})
+                        if norm == "0":
+                            cred_risk = "HIGH"
+                            cred_findings.append("LM Hash creation is permitted")
+                            cred_recs.append("Ensure NoLMHash is set to 1 to prevent legacy hash storage")
+                            
+                categories.append({
+                    "name": "Credential Security",
+                    "risk": cred_risk,
+                    "findings": cred_findings,
+                    "recommendations": cred_recs,
+                    "items": cred_items
+                })
+                for f in cred_findings: global_findings.append({"title": "Credential Security Weakness", "severity": cred_risk, "description": f})
+
+                # --- 5. Privileges Analysis ---
+                priv_items = []
+                priv_findings = []
+                priv_recs = []
+                priv_risk = "LOW"
+                
+                for right, sid_list_raw in priv_rights.items():
+                    priv_items.append({"key": right, "value": sid_list_raw})
+                    # If this is one of our dangerous privileges, flag it immediately
+                    if right in ["SeDebugPrivilege", "SeImpersonatePrivilege"]:
+                        priv_risk = "CRITICAL"
+                        priv_findings.append(f"Dangerous privilege {right} assigned locally")
+                        priv_recs.append(f"Remove {right} from any standard users or groups")
+                    elif right in ["SeBackupPrivilege", "SeRestorePrivilege", "SeTakeOwnershipPrivilege"]:
+                        if priv_risk != "CRITICAL": priv_risk = "HIGH"
+                        priv_findings.append(f"High-risk broad access privilege {right} assigned locally")
+                        priv_recs.append(f"Restrict {right} to authorized administrative utilities")
+                        
+                categories.append({
+                    "name": "Privilege Rights",
+                    "risk": priv_risk,
+                    "findings": priv_findings,
+                    "recommendations": priv_recs,
+                    "items": priv_items
+                })
+                for f in priv_findings: global_findings.append({"title": "Dangerous Privilege Right", "severity": priv_risk, "description": f})
+
+                # Calculate Overall Risk
                 overall_risk = "LOW"
-                
-                # Weak Passwords check
-                complex_pw = categories_map["Password Policy"].get("PasswordComplexity", "Disabled")
-                min_len = int(sys_access.get("MinimumPasswordLength", "0"))
-                if complex_pw == "Disabled" or min_len < 14:
-                    overall_risk = "CRITICAL"
-                    findings.append({
-                        "title": "Weak Password Policy",
-                        "severity": "CRITICAL",
-                        "description": f"Password complexity is {complex_pw} and minimum length is {min_len}.",
-                        "remediation": "Enable password complexity and set minimum length to 14 characters or higher."
-                    })
-
-                # Lack of Auditing
-                audit_keys = categories_map["Auditing"]
-                if audit_keys:
-                    no_audit = [k for k,v in audit_keys.items() if v == 'Disabled' or v == '0']
-                    if len(no_audit) > 0:
-                        if overall_risk != "CRITICAL": overall_risk = "CRITICAL"
-                        findings.append({
-                            "title": "No Auditing Configured",
-                            "severity": "CRITICAL",
-                            "description": "Security auditing is disabled for critical OS events.",
-                            "remediation": "Enable Success/Failure auditing for critical OS events."
-                        })
-
-                # SMB Signing
-                smb_client = None
-                smb_server = None
-                for k,v in categories_map["Network Security"].items():
-                    if 'lanmanworkstation\\parameters\\requiresecuritysignature' in k.lower(): smb_client = v
-                    if 'lanmanserver\\parameters\\requiresecuritysignature' in k.lower(): smb_server = v
-                
-                if smb_client == 'Disabled' or smb_server == 'Disabled':
-                    if overall_risk == "LOW": overall_risk = "HIGH"
-                    findings.append({
-                        "title": "SMB Signing Disabled",
-                        "severity": "HIGH",
-                        "description": "SMB Signing is not strictly required for client or server components.",
-                        "remediation": "Require SMB signing to prevent relay attacks."
-                    })
+                for cat in categories:
+                    if cat['risk'] == 'CRITICAL':
+                        overall_risk = 'CRITICAL'
+                    elif cat['risk'] == 'HIGH' and overall_risk != 'CRITICAL':
+                        overall_risk = 'HIGH'
+                    elif cat['risk'] == 'MEDIUM' and overall_risk not in ['CRITICAL', 'HIGH']:
+                        overall_risk = 'MEDIUM'
 
                 result = {
                     "overall_risk": overall_risk,
-                    "summary": f"Categorized {sum(len(v) for v in categories_map.values())} policies.",
-                    "categories": [{"name": cat_name, "items": [{"key": str(k).split('\\')[-1], "value": str(v)} for k,v in items.items()]} for cat_name, items in categories_map.items() if items],
-                    "findings": findings,
-                    "recommendations": [f["remediation"] for f in findings],
-                    "vulnerabilities": findings # Alias to sync with overarching analyzer
+                    "summary": f"Analyzed {len(categories)} security domains.",
+                    "categories": categories,
+                    "findings": global_findings,
+                    "vulnerabilities": global_findings
                 }
                 
                 return result
@@ -625,17 +698,125 @@ class AuditParser:
             return {'error': f'Failed to parse net users: {str(e)}'}
 
     def parse_gpresult(self, filepath):
-        """Parse raw gpresult output into a single string for display"""
+        """Parse raw gpresult output into a structured user context and GPO table"""
         try:
             with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
                 content = f.read()
-                start_idx = content.find('Applied Group Policy Objects')
-                if start_idx != -1:
-                    snippet = content[start_idx:start_idx+1000]
-                    return {'snippet': snippet}
-                return {'snippet': content[:1000]}
+
+            scope = 'Computer' if 'Computer' in filepath else 'User'
+            
+            # 1. Parse GPOs
+            gpos = []
+            applied_match = re.search(r'Applied Group Policy Objects[\s\-]+([\s\S]+?)(?:The following GPOs were not applied|Last time Group Policy was applied|The user is a part|Resultant Set|$)', content, re.IGNORECASE)
+            if applied_match:
+                block = applied_match.group(1)
+                for i, line in enumerate(block.strip().splitlines()):
+                    name = line.strip()
+                    if name and not name.startswith('---') and name.lower() != 'n/a' and len(name) > 1:
+                        gpos.append({'name': name, 'scope': scope, 'status': 'Applied', 'order': i + 1})
+
+            not_applied_match = re.search(r'The following GPOs were not applied[\s\-]+([\s\S]+?)(?:\n\n|Last time|The user is a part|Resultant Set|$)', content, re.IGNORECASE)
+            if not_applied_match:
+                block = not_applied_match.group(1)
+                for line in block.strip().splitlines():
+                    name = line.strip()
+                    reason_match = re.search(r'Reason:\s*(.+)', block, re.IGNORECASE)
+                    reason = reason_match.group(1).strip() if reason_match else 'Unknown'
+                    if name and not name.startswith('---') and not name.lower().startswith('reason') and name.lower() != 'n/a' and len(name) > 1:
+                        gpos.append({'name': name, 'scope': scope, 'status': f'Not Applied ({reason})', 'order': '-'})
+
+            # 2. Parse User Info
+            user_info = {}
+            os_match = re.search(r'OS Version:\s*(.+)', content)
+            if os_match: user_info['os_version'] = os_match.group(1).strip()
+            
+            profile_match = re.search(r'Local Profile:\s*(.+)', content)
+            if profile_match: user_info['profile_path'] = profile_match.group(1).strip()
+            
+            user_match = re.search(r'RSOP data for\s+(.+?)\s+on', content)
+            if user_match: user_info['username'] = user_match.group(1).strip()
+
+            # 3. Parse Groups
+            groups = []
+            groups_match = re.search(r'The user is a part of the following security groups[\s\-]+([\s\S]+?)(?:\n\n|The user has|$)', content, re.IGNORECASE)
+            if groups_match:
+                for line in groups_match.group(1).strip().splitlines():
+                    val = line.strip()
+                    if val and not val.startswith('---'):
+                        groups.append(val)
+
+            # 4. Parse Privileges
+            privileges = []
+            privs_match = re.search(r'The user has the following security privileges[\s\-]+([\s\S]+?)(?:\n\n|Resultant Set|$)', content, re.IGNORECASE)
+            if privs_match:
+                for line in privs_match.group(1).strip().splitlines():
+                    val = line.strip()
+                    if val and not val.startswith('---'):
+                        privileges.append(val)
+
+            # 5. Normalize Privileges
+            priv_map = {
+                "Debug programs": "SeDebugPrivilege",
+                "Impersonate a client after authentication": "SeImpersonatePrivilege",
+                "Back up files and directories": "SeBackupPrivilege",
+                "Restore files and directories": "SeRestorePrivilege",
+                "Take ownership of files or other objects": "SeTakeOwnershipPrivilege",
+                "Manage auditing and security log": "SeSecurityPrivilege",
+                "Load and unload device drivers": "SeLoadDriverPrivilege",
+                "Bypass traverse checking": "SeChangeNotifyPrivilege",
+                "Change the system time": "SeSystemtimePrivilege",
+                "Shut down the system": "SeShutdownPrivilege",
+                "Force shutdown from a remote system": "SeRemoteShutdownPrivilege"
+            }
+            normalized_privs = []
+            for p in privileges:
+                if p in priv_map:
+                    normalized_privs.append(priv_map[p])
+                else:
+                    normalized_privs.append(p)
+
+            # 6. Risk Interpretation Engine
+            risk = "LOW"
+            findings = []
+            recommendations = []
+            
+            is_admin = any('Administrators' in g for g in groups)
+            if is_admin:
+                findings.append("User has local administrative privileges.")
+                
+            has_debug = "SeDebugPrivilege" in normalized_privs
+            has_impersonate = "SeImpersonatePrivilege" in normalized_privs
+            has_backup = "SeBackupPrivilege" in normalized_privs
+            has_restore = "SeRestorePrivilege" in normalized_privs
+            has_ownership = "SeTakeOwnershipPrivilege" in normalized_privs
+            
+            if has_debug or has_impersonate:
+                risk = "CRITICAL"
+                if has_debug: findings.append("CRITICAL: User has SeDebugPrivilege (can inject into SYSTEM processes).")
+                if has_impersonate: findings.append("CRITICAL: User has SeImpersonatePrivilege (vulnerable to token abuse/potato attacks).")
+                recommendations.append("Remove SeDebugPrivilege and SeImpersonatePrivilege from this user or service account.")
+            elif has_backup or has_restore or has_ownership:
+                if risk != "CRITICAL": risk = "HIGH"
+                findings.append("HIGH: User has broad system access privileges (Backup/Restore/TakeOwnership).")
+                recommendations.append("Apply least privilege principle and remove broad system access rights if not required.")
+                
+            if is_admin and risk == "CRITICAL":
+                findings.append("User effectively has FULL SYSTEM-LEVEL CONTROL.")
+                recommendations.append("Limit administrative privileges for daily operation accounts.")
+
+            return {
+                'gpos': gpos, 
+                'scope': scope,
+                'user_info': user_info,
+                'groups': groups,
+                'privileges': normalized_privs,
+                'risk': risk,
+                'findings': findings,
+                'recommendations': recommendations
+            }
         except Exception as e:
             return {'error': f'Failed to parse gpresult: {str(e)}'}
+
 
     def parse_gp_cache(self, filepath):
         try:
@@ -671,7 +852,8 @@ class AuditParser:
             'SecPol': os.path.join(base_path, 'audit_secpol.cfg'),
             'NetUsers': os.path.join(base_path, 'audit_net_users.txt'),
             'GPCache': os.path.join(base_path, 'audit_gp_cache.json'),
-            'GPResultComputer': os.path.join(base_path, 'audit_gpresult_computer.txt')
+            'GPResultComputer': os.path.join(base_path, 'audit_gpresult_computer.txt'),
+            'GPResultUser': os.path.join(base_path, 'audit_gpresult_user.txt')
         }
         
         results = {}
@@ -739,6 +921,9 @@ class AuditParser:
             
         if self._file_exists(files['GPResultComputer']):
             results['gpresult_computer'] = self.parse_gpresult(files['GPResultComputer'])
+            
+        if self._file_exists(files['GPResultUser']):
+            results['gpresult_user'] = self.parse_gpresult(files['GPResultUser'])
         
         self.results['summary'] = results
         self.results['findings'] = all_vulnerabilities  # Update findings with the comprehensive array
