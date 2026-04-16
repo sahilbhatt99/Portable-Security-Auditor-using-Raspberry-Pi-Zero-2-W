@@ -17,11 +17,33 @@ current_scan = {
     'scan_type': 'Full_Audit'
 }
 
+# Expected files per scan type. Update these lists to match your payloads.
+EXPECTED_FILES = {
+    'Full_Audit': {
+        'audit_sysinfo.json', 'audit_hklm_policies.txt', 'audit_hkcu_policies.txt',
+        'audit_services.txt', 'audit_control.txt', 'audit_firewall.txt',
+        'audit_defender.json', 'audit_drivers.txt', 'audit_devices.txt',
+        'audit_auditpol.txt', 'audit_gp_cache.json', 'audit_net_users.txt',
+        'audit_secpol.cfg', 'audit_gpresult_computer.txt', 'audit_gpresult_user.txt'
+    },
+    'Basic_Audit': {
+        'audit_sysinfo.json', 'audit_firewall.txt', 'audit_defender.json'
+    }
+}
+
+# Track received files for the current session
+_received_files = set()
+_task_completed = False
+
 def set_scan_metadata(device_name, owner_name, scan_type):
-    """Set metadata for current scan"""
+    """Set metadata for current scan and reset tracking state"""
+    global _received_files, _task_completed
     current_scan['device_name'] = device_name
     current_scan['owner_name'] = owner_name
     current_scan['scan_type'] = scan_type
+    _received_files = set()
+    _task_completed = False
+    logger.info(f"[SCAN] Metadata set: {owner_name}/{device_name} ({scan_type}). Awaiting files...")
 
 def get_upload_directory():
     """Generate upload directory based on current scan metadata"""
@@ -46,6 +68,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"Upload server is running. Use POST to upload files.")
     
     def do_POST(self):
+        global _received_files, _task_completed
         try:
             length = int(self.headers.get('Content-Length', 0))
             data = self.rfile.read(length)
@@ -57,7 +80,19 @@ class Handler(BaseHTTPRequestHandler):
             with open(filepath, "wb") as f:
                 f.write(data)
             
-            logger.info(f"✓ Received: {filename} ({length} bytes) -> {upload_dir}")
+            _received_files.add(filename)
+            scan_type = current_scan['scan_type']
+            expected = EXPECTED_FILES.get(scan_type, set())
+            remaining = expected - _received_files
+            
+            logger.info(f"✓ Received: {filename} ({length} bytes) [{len(_received_files)}/{len(expected)}]")
+
+            # Fire task complete only once when all expected files have arrived
+            if expected and not remaining and not _task_completed:
+                _task_completed = True
+                logger.info(f"✅ TASK COMPLETED — All {len(expected)} files received for scan '{scan_type}'.")
+            elif remaining:
+                logger.info(f"   Waiting for: {', '.join(sorted(remaining))}")
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain')

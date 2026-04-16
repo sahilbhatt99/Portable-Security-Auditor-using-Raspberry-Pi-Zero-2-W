@@ -137,7 +137,7 @@ class HIDController:
             
             self.last_execution[payload_name] = datetime.now()
             self._log_execution(payload_name, 'success')
-            self._log_live(f"✓ Execution completed: {payload_name}", 'success')
+            self._log_live(f"✓ Injection completed: {payload_name} — awaiting file uploads from target", 'success')
             self.current_execution = None
             
             return {
