@@ -160,7 +160,8 @@ class ReportGenerator:
                 
                 t = Table(card_data, colWidths=[1.5*inch, 5.0*inch])
                 t.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#e6e6e6')), ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
-                self.story.append(KeepTogether([t, Spacer(1, 0.2*inch)]))
+                import reportlab.platypus
+                self.story.append(reportlab.platypus.KeepTogether([t, Spacer(1, 0.2*inch)]))
 
     def _get_risk_score(self, audit_results):
         score = len(audit_results.get('findings', [])) * 20

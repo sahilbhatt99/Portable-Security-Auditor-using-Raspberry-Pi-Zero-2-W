@@ -99,6 +99,7 @@ class DefenderPlugin(AuditPlugin):
                 ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
-            story.append(KeepTogether([det_table, Spacer(1, 0.3*inch)]))
+            import reportlab.platypus
+            story.append(reportlab.platypus.KeepTogether([det_table, Spacer(1, 0.3*inch)]))
             
         story.append(PageBreak())
