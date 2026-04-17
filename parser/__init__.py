@@ -3,6 +3,7 @@ Security Audit Parser Package.
 Parses Windows audit files and generates PDF reports.
 """
 
+import os
 from .audit_parser import AuditParser
 from .report_generator import ReportGenerator
 
@@ -23,7 +24,10 @@ def generate_report(base_path='C:\\', output_pdf='security_report.pdf'):
     parser = AuditParser()
     results = parser.analyze_all(base_path)
     
-    generator = ReportGenerator(output_pdf)
-    report_path = generator.generate(results)
+    out_dir = os.path.dirname(output_pdf) or '.'
+    out_file = os.path.basename(output_pdf)
+    
+    generator = ReportGenerator(out_dir)
+    report_path = generator.generate(results, out_file)
     
     return report_path
