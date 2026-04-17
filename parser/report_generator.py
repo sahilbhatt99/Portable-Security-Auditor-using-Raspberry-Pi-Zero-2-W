@@ -110,6 +110,22 @@ class ReportGenerator:
         else:
             self.story.append(Paragraph("System appears highly secure. No vulnerabilities detected.", self.styles['CorpNormal']))
             
+        self.story.append(Spacer(1, 0.3*inch))
+        self.story.append(Paragraph("SYSTEM SPECIFICATIONS", self.styles['CorpHeading2']))
+        
+        cache = audit_results.get('summary', {}).get('plugin_cache', {})
+        sysinfo_list = cache.get('SysinfoPlugin', [])
+        sysinfo = sysinfo_list[0] if sysinfo_list else {}
+        
+        sys_data = [
+            [Paragraph("<b>Hostname:</b>", self.styles['CorpNormal']), Paragraph(sysinfo.get('hostname', 'UNKNOWN'), self.styles['CorpNormal'])],
+            [Paragraph("<b>Current User:</b>", self.styles['CorpNormal']), Paragraph(sysinfo.get('user', 'UNKNOWN'), self.styles['CorpNormal'])],
+            [Paragraph("<b>Operating System:</b>", self.styles['CorpNormal']), Paragraph(sysinfo.get('os', 'UNKNOWN'), self.styles['CorpNormal'])]
+        ]
+        t = Table(sys_data, colWidths=[1.5*inch, 5.0*inch])
+        self.story.append(t)
+        self.story.append(Spacer(1, 0.5*inch))
+            
     def _add_severity_pie_chart(self, high_count, med_count):
         d = Drawing(400, 160)
         pc = Pie()
@@ -144,8 +160,8 @@ class ReportGenerator:
         findings = audit_results.get('findings', [])
         if not findings: return
             
-        self.story.append(Paragraph("SECURITY FINDINGS", self.styles['CorpHeading1']))
-        self.story.append(Paragraph("Details regarding configurations extracted iteratively by active plugins mapping against execution scopes.", self.styles['CorpEducational']))
+        self.story.append(Paragraph("SECURITY FINDINGS & ANOMALIES", self.styles['CorpHeading1']))
+        self.story.append(Paragraph("Critical & High Vulnerabilities", self.styles['CorpEducational']))
         self.story.append(Spacer(1, 0.2*inch))
         
         for f in findings:
