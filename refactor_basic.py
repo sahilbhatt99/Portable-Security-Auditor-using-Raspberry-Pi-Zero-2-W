@@ -1,0 +1,56 @@
+import os
+import re
+
+parser_dir = r"c:\Users\99sah\usb gadget\Portable-Security-Auditor-using-Raspberry-Pi-Zero-2-W\parser"
+plugins_dir = os.path.join(parser_dir, "plugins")
+os.makedirs(plugins_dir, exist_ok=True)
+
+# 1. Create sysinfo_plugin.py
+sysinfo_code = '''import json
+from reportlab.platypus import Paragraph, Spacer, PageBreak
+from parser.plugins.base import AuditPlugin
+
+class SysinfoPlugin(AuditPlugin):
+    @property
+    def target_files(self): return ['audit_sysinfo.json']
+    def parse(self, filepath):
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+                return {'hostname': data.get('hostname'), 'user': data.get('user'), 'os': data.get('os')}
+        except: return {}
+    def generate_section(self, parsed_data, story, styles):
+        return # Sysinfo is injected manually into Cover Page
+'''
+with open(os.path.join(plugins_dir, 'sysinfo_plugin.py'), 'w') as f: f.write(sysinfo_code)
+
+# 2. Create net_users_plugin.py
+net_users_code = '''import re
+from reportlab.platypus import Paragraph, Spacer, PageBreak
+from parser.plugins.base import AuditPlugin
+
+class NetUsersPlugin(AuditPlugin):
+    @property
+    def target_files(self): return ['audit_net_users.txt']
+    def parse(self, filepath):
+        try:
+            with open(filepath, 'r', encoding='ascii', errors='ignore') as f:
+                c = f.read()
+                users = []
+                for line in c.split('\\n'):
+                    if 'The command completed' in line or 'User accounts for' in line or '---' in line or not line.strip(): continue
+                    parts = re.split(r'\\s{2,}', line.strip())
+                    for p in parts:
+                        if p.strip(): users.append(p.strip())
+                return {'users': users}
+        except: return {}
+    def generate_section(self, parsed_data, story, styles):
+        if 'users' in parsed_data:
+            story.append(Paragraph("Local Accounts Discovered", styles['CorpHeading2']))
+            story.append(Paragraph(", ".join(parsed_data['users']), styles['CorpNormal']))
+            story.append(Spacer(1, 0.2*72))
+            story.append(PageBreak())
+'''
+with open(os.path.join(plugins_dir, 'net_users_plugin.py'), 'w') as f: f.write(net_users_code)
+
+print("Created sysinfo and net_users plugins.")
