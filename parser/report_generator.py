@@ -580,7 +580,44 @@ class ReportGenerator:
         users = net_users.get('users', [])
         self.story.append(Paragraph(", ".join(users), self.styles['CorpNormal']))
         self.story.append(Spacer(1, 0.3*inch))
+
+    def _add_gp_cache_section(self, gp_cache):
+        self.story.append(Paragraph("Group Policy Offline Cache", self.styles['CorpHeading2']))
         
+        if 'error' in gp_cache:
+            self.story.append(Paragraph(f"Error: {gp_cache['error']}", self.styles['DangerText']))
+            return
+            
+        findings = gp_cache.get('findings', [])
+        for f in findings:
+            if 'lingering' in f.lower():
+                self.story.append(Paragraph(f, self.styles['DangerText']))
+            else:
+                self.story.append(Paragraph(f, self.styles['CorpNormal']))
+                
+        self.story.append(Spacer(1, 0.1*inch))
+        
+        data = [['Cache File Name', 'Last Modified', 'Size (Bytes)']]
+        for item in gp_cache.get('data', []):
+            data.append([
+                Paragraph(item.get('name', ''), self.styles['CorpNormal']),
+                Paragraph(str(item.get('last_modified', '')), self.styles['CorpNormal']),
+                Paragraph(str(item.get('size', '')), self.styles['CorpNormal'])
+            ])
+            
+        if len(data) > 1:
+            table = Table(data, colWidths=[2.5*inch, 2.0*inch, 1.5*inch], repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f497d')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            self.story.append(table)
+            self.story.append(Spacer(1, 0.3*inch))
+        
+
     def _add_detailed_gpo_settings(self, settings):
         """Renders detailed RSoP data tables (Registry/Templates/Security)"""
         self.story.append(Paragraph("Detailed GPO Applied Settings", self.styles['CorpHeading2']))
