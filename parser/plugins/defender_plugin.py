@@ -27,9 +27,12 @@ class DefenderPlugin(AuditPlugin):
                     findings.append('Behavior monitoring is DISABLED')
                 
                 for key, value in data.items():
+                    val_str = str(value)
+                    if len(val_str) > 500:
+                        val_str = val_str[:500] + '... [TRUNCATED FOR REPORT]'
                     settings.append({
                         'setting': key,
-                        'value': str(value),
+                        'value': val_str,
                         'description': self._describe_defender_setting(key)
                     })
                 
