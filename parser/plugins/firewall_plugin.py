@@ -107,7 +107,7 @@ class FirewallPlugin(AuditPlugin):
                 ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ]))
-            import reportlab.platypus
-            story.append(reportlab.platypus.KeepTogether([table, Spacer(1, 0.3*inch)]))
+            story.append(table)
+            story.append(Spacer(1, 0.3*inch))
             
         story.append(PageBreak())
